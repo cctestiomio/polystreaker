@@ -1,153 +1,326 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Polystreaker</title>
     <style>
-      body { font-family: system-ui, Arial; margin: 24px; }
-      code { background: #f3f3f3; padding: 2px 6px; border-radius: 6px; }
-      table { border-collapse: collapse; margin-top: 12px; }
-      th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: right; }
-      th:first-child, td:first-child { text-align: center; }
-      .row { margin: 10px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-      input { padding: 6px 8px; }
-      button { padding: 7px 10px; cursor: pointer; }
-      #status { white-space: pre-wrap; }
+      :root{
+        --bg:#0b1020;
+        --card:#111a33;
+        --card2:#0f1730;
+        --text:#e8ecff;
+        --muted:#aab4e6;
+        --border:rgba(255,255,255,.12);
+        --good:#2ecc71;
+        --bad:#ff4d4d;
+        --warn:#ffcc66;
+        --accent:#6ea8ff;
+      }
+      *{box-sizing:border-box}
+      body{
+        margin:0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        background: radial-gradient(1200px 700px at 15% 10%, rgba(110,168,255,.18), transparent 55%),
+                    radial-gradient(1200px 700px at 85% 20%, rgba(46,204,113,.12), transparent 55%),
+                    var(--bg);
+        color:var(--text);
+      }
+      a{ color:var(--accent); text-decoration:none }
+      a:hover{ text-decoration:underline }
+      .wrap{ max-width:1050px; margin:28px auto; padding:0 16px; }
+      .title{
+        display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+        margin-bottom:14px;
+      }
+      h1{ font-size:22px; margin:0; letter-spacing:.2px }
+      .sub{ color:var(--muted); font-size:13px }
+      .card{
+        background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:14px;
+        box-shadow: 0 12px 32px rgba(0,0,0,.35);
+      }
+      .grid{
+        display:grid;
+        grid-template-columns: 1.7fr 1fr 1fr 1fr 1fr 1fr;
+        gap:10px;
+      }
+      label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+      input{
+        width:100%;
+        background: rgba(0,0,0,.22);
+        border:1px solid var(--border);
+        color:var(--text);
+        padding:9px 10px;
+        border-radius:10px;
+        outline:none;
+      }
+      input:focus{ border-color: rgba(110,168,255,.65); box-shadow:0 0 0 3px rgba(110,168,255,.18); }
+      .btnrow{ display:flex; gap:10px; align-items:end; justify-content:flex-end; }
+      button{
+        background: linear-gradient(180deg, rgba(110,168,255,.95), rgba(110,168,255,.70));
+        border:0;
+        color:#08102a;
+        font-weight:700;
+        padding:10px 12px;
+        border-radius:10px;
+        cursor:pointer;
+      }
+      button.secondary{
+        background: rgba(255,255,255,.08);
+        color: var(--text);
+        border:1px solid var(--border);
+      }
+      button:disabled{ opacity:.55; cursor:not-allowed; }
+      .status{
+        margin-top:12px;
+        background: rgba(0,0,0,.18);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-size:12px;
+        color: var(--text);
+        white-space: pre-wrap;
+      }
+      .row2{
+        display:grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap:12px;
+        margin-top:12px;
+      }
+      table{
+        width:100%;
+        border-collapse:collapse;
+        overflow:hidden;
+        border-radius:14px;
+        border:1px solid var(--border);
+        background: rgba(0,0,0,.14);
+      }
+      th,td{ padding:10px 10px; border-bottom:1px solid rgba(255,255,255,.08); text-align:right; }
+      th:first-child, td:first-child{ text-align:center; }
+      th{ font-size:12px; color:var(--muted); font-weight:700; background: rgba(255,255,255,.04); }
+      tr:last-child td{ border-bottom:0; }
+      .pill{
+        display:inline-block;
+        padding:3px 8px;
+        border-radius:999px;
+        font-size:12px;
+        border:1px solid var(--border);
+        background: rgba(255,255,255,.06);
+        color: var(--muted);
+      }
+      .good{ color: var(--good); font-weight:800; }
+      .bad{ color: var(--bad); font-weight:800; }
+      .muted{ color: var(--muted); }
+      .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+      ul{ margin:10px 0 0 18px; color: var(--text); }
+      .foot{ margin-top:12px; color: var(--muted); font-size:12px; }
+      @media (max-width: 980px){
+        .grid{ grid-template-columns: 1fr 1fr; }
+        .btnrow{ justify-content:stretch; }
+      }
     </style>
   </head>
   <body>
-    <h1>Polymarket streak backtest</h1>
+    <div class="wrap">
+      <div class="title">
+        <div>
+          <h1>Polymarket streak backtest</h1>
+          <div class="sub">If previous N rounds were all Up (or all Down), predict the opposite next round.</div>
+        </div>
+        <div class="pill mono" id="buildTag">Vercel</div>
+      </div>
 
-    <div class="row">
-      <label>Base slug:</label>
-      <input id="baseSlug" style="width: 360px" placeholder="(auto: latest btc-updown-5m-...)" />
-      <label>Count:</label>
-      <input id="count" style="width: 80px" value="40" />
-      <button id="run">Run</button>
+      <div class="card">
+        <div class="grid">
+          <div>
+            <label>Base slug (current round)</label>
+            <input id="baseSlug" placeholder="Auto (latest resolved)" />
+          </div>
+          <div>
+            <label>Count (lookback slugs)</label>
+            <input id="count" value="100" />
+          </div>
+          <div>
+            <label>Offset (slugs back)</label>
+            <input id="offset" value="1" />
+          </div>
+          <div>
+            <label>Min streak</label>
+            <input id="minStreak" value="3" />
+          </div>
+          <div>
+            <label>Max streak</label>
+            <input id="maxStreak" value="8" />
+          </div>
+          <div>
+            <label>Concurrency</label>
+            <input id="concurrency" value="4" />
+          </div>
+        </div>
+
+        <div class="btnrow" style="margin-top:10px">
+          <button class="secondary" id="btnLatest">Use latest resolved</button>
+          <button id="btnRun">Run</button>
+        </div>
+
+        <div class="status" id="status">Loading latest slugâ€¦</div>
+      </div>
+
+      <div class="row2">
+        <div class="card">
+          <h3 style="margin:0 0 10px 0; font-size:14px; color:var(--muted); letter-spacing:.2px;">Win rates</h3>
+          <div id="winrates"></div>
+        </div>
+        <div class="card">
+          <h3 style="margin:0 0 10px 0; font-size:14px; color:var(--muted); letter-spacing:.2px;">Next-round suggestions</h3>
+          <div id="next"></div>
+          <div class="foot">
+            Raw JSON: <a class="mono" id="raw" href="#" target="_blank" rel="noreferrer">/api/stats</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="foot">
+        Tip: If you set <span class="mono">Count=2</span> with <span class="mono">Min streak=3</span>, you will see 0 signals (that is expected).
+      </div>
     </div>
-
-    <pre id="status"></pre>
-    <div id="out"></div>
 
     <script type="module">
       const statusEl = document.querySelector("#status");
-      const outEl = document.querySelector("#out");
       const baseSlugEl = document.querySelector("#baseSlug");
-      const countEl = document.querySelector("#count");
+      const rawEl = document.querySelector("#raw");
+      const winratesEl = document.querySelector("#winrates");
+      const nextEl = document.querySelector("#next");
+      const btnRun = document.querySelector("#btnRun");
+      const btnLatest = document.querySelector("#btnLatest");
 
-      function pct(x) { return (x == null) ? "n/a" : (x * 100).toFixed(2) + "%"; }
+      function pct(x){ return (x==null) ? "n/a" : (x*100).toFixed(2) + "%"; }
+      function num(v, fallback){ const n = Number(String(v).trim()); return Number.isFinite(n) ? n : fallback; }
 
-      function renderError(msg, extra="") {
-        statusEl.textContent = "ERROR: " + msg + (extra ? ("\n\n" + extra) : "");
-        outEl.innerHTML = "";
+      function setStatus(lines){
+        statusEl.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines);
       }
 
-      async function loadLatest() {
-        statusEl.textContent = "Loading latest slugâ€¦";
-        outEl.innerHTML = "";
+      function renderWinrates(byN){
+        const ns = Object.keys(byN || {}).sort((a,b)=>Number(a)-Number(b));
+        if (!ns.length){ winratesEl.innerHTML = "<div class='muted'>No data.</div>"; return; }
 
-        let res, text;
-        try {
-          res = await fetch(`/api/latest?prefix=btc-updown-5m-&roundSeconds=300`, { headers: { "accept": "application/json" } });
-          text = await res.text();
-        } catch (e) {
-          renderError("Failed to call /api/latest", String(e?.message ?? e));
-          return;
-        }
-
-        if (!res.ok) {
-          renderError(`Latest slug HTTP ${res.status}`, text.slice(0, 2000));
-          return;
-        }
-
-        let j;
-        try { j = JSON.parse(text); } catch { renderError("Latest slug JSON parse failed", text.slice(0, 2000)); return; }
-
-        if (!j.latestSlug) {
-          renderError("No latestSlug returned", JSON.stringify(j, null, 2));
-          return;
-        }
-
-        baseSlugEl.value = j.latestSlug;
-        statusEl.textContent =
-          `Latest slug: ${j.latestSlug}\n` +
-          (j.nextSlug ? `Next slug:   ${j.nextSlug}\n` : "") +
-          (j.latestTs ? `Latest ts:   ${j.latestTs}\n` : "");
-      }
-
-      async function run() {
-        outEl.innerHTML = "";
-        statusEl.textContent = "Runningâ€¦";
-
-        const baseSlug = baseSlugEl.value.trim(); // can be blank; API will default to latest
-        const count = countEl.value.trim();
-
-        const qs = new URLSearchParams({
-          baseSlug,
-          count,
-          minStreak: "3",
-          maxStreak: "8",
-          roundSeconds: "300",
-          concurrency: "4"
-        });
-
-        const url = `/api/stats?${qs.toString()}`;
-
-        let res, text;
-        try {
-          res = await fetch(url, { headers: { "accept": "application/json" } });
-          text = await res.text();
-        } catch (e) {
-          renderError("Request failed", String(e?.message ?? e));
-          return;
-        }
-
-        if (!res.ok) {
-          renderError(`HTTP ${res.status}`, text.slice(0, 4000));
-          return;
-        }
-
-        let j;
-        try { j = JSON.parse(text); } catch { renderError("Could not parse JSON", text.slice(0, 4000)); return; }
-
-        if (j.error) {
-          renderError("API error", JSON.stringify(j, null, 2).slice(0, 4000));
-          return;
-        }
-
-        statusEl.textContent =
-          `Using baseSlug: ${j.input?.baseSlug}\n` +
-          `Resolved rounds: ${j.totals?.resolvedRounds}/${j.totals?.rounds}\n` +
-          `Signals: ${j.totals?.signals}\n` +
-          `API: ${url}`;
-
-        const byN = j.byN || {};
-        const ns = Object.keys(byN).sort((a,b) => Number(a)-Number(b));
-        const rows = ns.map(n => {
+        const rows = ns.map(n=>{
           const b = byN[n];
-          return `<tr><td>${n}</td><td>${b.signals}</td><td>${b.wins}</td><td>${pct(b.winRate)}</td></tr>`;
+          const losses = (b.signals ?? 0) - (b.wins ?? 0);
+          const wr = b.winRate;
+          const wrClass = (wr==null) ? "muted" : (wr >= 0.5 ? "good" : "bad");
+          return `
+            <tr>
+              <td>${n}</td>
+              <td>${b.signals ?? 0}</td>
+              <td class="good">${b.wins ?? 0}</td>
+              <td class="bad">${losses}</td>
+              <td class="${wrClass}">${pct(wr)}</td>
+            </tr>`;
         }).join("");
 
-        const next = j.nextPrediction?.suggestions?.map(s =>
-          `<li>N=${s.n}: previous were ${s.prevDir} â‡’ predict <b>${s.predictNext}</b> (nextTs=${s.nextTs})</li>`
-        ).join("") ?? "";
-
-        outEl.innerHTML = `
-          <h2>Win rates</h2>
+        winratesEl.innerHTML = `
           <table>
-            <thead><tr><th>N</th><th>Signals</th><th>Wins</th><th>Win rate</th></tr></thead>
-            <tbody>${rows || ""}</tbody>
-          </table>
-
-          <h2>Next-round suggestions</h2>
-          <ul>${next || "<li>No current 3â€“8 streak detected (or not enough resolved rounds).</li>"}</ul>
-
-          <p>Raw JSON: <a href="${url}" target="_blank" rel="noreferrer"><code>${url}</code></a></p>
-        `;
+            <thead>
+              <tr><th>N</th><th>Signals</th><th>Wins</th><th>Losses</th><th>Win rate</th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>`;
       }
 
-      document.querySelector("#run").addEventListener("click", run);
+      function renderNext(nextPrediction, minStreak, maxStreak){
+        if (!nextPrediction || !nextPrediction.suggestions || !nextPrediction.suggestions.length){
+          nextEl.innerHTML = `<div class="muted">No current ${minStreak}-${maxStreak} streak detected (or not enough resolved rounds).</div>`;
+          return;
+        }
+        const items = nextPrediction.suggestions.map(s=>{
+          const predClass = s.predictNext === "Up" ? "good" : "bad";
+          const prevClass = s.prevDir === "Up" ? "good" : "bad";
+          return `<li class="mono">N=${s.n}: previous were <span class="${prevClass}">${s.prevDir}</span> => predict <span class="${predClass}">${s.predictNext}</span></li>`;
+        }).join("");
+        nextEl.innerHTML = `<ul>${items}</ul>`;
+      }
+
+      async function callJson(url){
+        const res = await fetch(url, { headers: { "accept":"application/json" } });
+        const text = await res.text();
+        let j = null;
+        try { j = JSON.parse(text); } catch {}
+        return { res, text, j };
+      }
+
+      async function loadLatest(){
+        setStatus("Loading latest slugâ€¦");
+        const { res, text, j } = await callJson(`/api/latest?prefix=btc-updown-5m-&roundSeconds=300&lookbackSteps=72`);
+        if (!res.ok) { setStatus(["ERROR /api/latest", `HTTP ${res.status}`, text.slice(0, 3000)]); return; }
+
+        const pick = j.latestResolvedSlug || j.latestExistingSlug;
+        if (pick) baseSlugEl.value = pick;
+
+        setStatus([
+          `Latest existing: ${j.latestExistingSlug || "n/a"}`,
+          `Latest resolved: ${j.latestResolvedSlug || "n/a"}`,
+          `Next slug:       ${j.nextSlug || "n/a"}`
+        ]);
+      }
+
+      function makeStatsUrl(){
+        const minStreak = num(document.querySelector("#minStreak").value, 3);
+        const maxStreak = num(document.querySelector("#maxStreak").value, 8);
+        const count = num(document.querySelector("#count").value, 100);
+        const offset = num(document.querySelector("#offset").value, 1);
+        const concurrency = num(document.querySelector("#concurrency").value, 4);
+
+        const qs = new URLSearchParams({
+          baseSlug: baseSlugEl.value.trim(),
+          count: String(count),
+          offset: String(offset),
+          minStreak: String(minStreak),
+          maxStreak: String(maxStreak),
+          roundSeconds: "300",
+          concurrency: String(concurrency)
+        });
+        return { url: `/api/stats?${qs.toString()}`, minStreak, maxStreak };
+      }
+
+      async function run(){
+        btnRun.disabled = true;
+        try{
+          winratesEl.innerHTML = "";
+          nextEl.innerHTML = "";
+          const { url, minStreak, maxStreak } = makeStatsUrl();
+          rawEl.href = url;
+          rawEl.textContent = url;
+
+          setStatus("Running backtestâ€¦");
+          const { res, text, j } = await callJson(url);
+          if (!res.ok){ setStatus(["ERROR /api/stats", `HTTP ${res.status}`, text.slice(0, 3500)]); return; }
+          if (j?.error){ setStatus(["ERROR /api/stats", JSON.stringify(j, null, 2).slice(0, 3500)]); return; }
+
+          setStatus([
+            `Using baseSlug:     ${j.input?.baseSlug}`,
+            `Backtest slugs:     previous ${j.input?.count} (offset=${j.input?.offset})`,
+            `Resolved rounds:    ${j.totals?.resolvedRounds}/${j.totals?.rounds}`,
+            `Signals:            ${j.totals?.signals}`,
+            `Diagnostics errors: ${j.diagnostics?.totalErrors ?? 0}`,
+            j.diagnostics?.topErrors?.length ? ("Top errors:\n" + j.diagnostics.topErrors.map(x=>`- ${x.key}: ${x.count}`).join("\n")) : ""
+          ].filter(Boolean));
+
+          renderWinrates(j.byN);
+          renderNext(j.nextPrediction, minStreak, maxStreak);
+        } finally {
+          btnRun.disabled = false;
+        }
+      }
+
+      btnLatest.addEventListener("click", async () => { await loadLatest(); });
+      btnRun.addEventListener("click", async () => { await run(); });
+
       await loadLatest();
       await run();
     </script>
