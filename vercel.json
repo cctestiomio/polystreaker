@@ -1,10 +1,10 @@
 ﻿{
   "functions": {
     "api/latest.js": {
-      "maxDuration": 30
+      "maxDuration": 10
     },
     "api/stats.js": {
-      "maxDuration": 60
+      "maxDuration": 10
     }
   }
 }
