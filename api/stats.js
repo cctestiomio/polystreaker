@@ -11,6 +11,7 @@ export default async function handler(req, res){
     const url = new URL(req.url, "http://localhost");
 
     const baseSlug = (url.searchParams.get("baseSlug") ?? "").trim();
+    const useLatest = url.searchParams.get("useLatest") === "1";
     const count = Number(url.searchParams.get("count") ?? 100);
     const offset = Number(url.searchParams.get("offset") ?? 1);
     const minStreak = Number(url.searchParams.get("minStreak") ?? 2);
@@ -20,7 +21,7 @@ export default async function handler(req, res){
     const stripCount = Number(url.searchParams.get("stripCount") ?? 12);
     const signalsLimit = Number(url.searchParams.get("signalsLimit") ?? 25);
 
-    const result = await runBacktest({ baseSlug, count, offset, minStreak, maxStreak, roundSeconds, concurrency, stripCount, signalsLimit });
+    const result = await runBacktest({ baseSlug, useLatest, count, offset, minStreak, maxStreak, roundSeconds, concurrency, stripCount, signalsLimit });
     res.status(result?.error ? 500 : 200).json(result);
   } catch(e){
     res.status(500).json({ error: String(e?.message ?? e), stack: String(e?.stack ?? "") });
