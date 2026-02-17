@@ -7,10 +7,4 @@
       "maxDuration": 60
     }
   },
-  "crons": [
-    {
-      "path": "/api/stats?useLatest=1&count=100&offset=1&minStreak=2&maxStreak=8&roundSeconds=300&concurrency=3&stripCount=12&signalsLimit=25",
-      "schedule": "*/2 * * * *"
-    }
-  ]
 }
