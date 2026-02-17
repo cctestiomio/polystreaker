@@ -3,6 +3,22 @@ import { runBacktest } from "../lib/backtest-core.js";
 
 export const config = { runtime: "nodejs" };
 
+
+// Discord webhook helper
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1467216362962161727/qDTCrFMNtUUaTIhw7jrr3z7W2FmyfNq6BaDHfvE2l3M9djE-oKRzSLlYVqX0_zjq0kxM";
+
+async function sendDiscordAlert(message) {
+  try {
+    if (!DISCORD_WEBHOOK_URL) return;
+    await fetch(DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: message })
+    });
+  } catch (e) {
+    console.error("Discord webhook failed", e);
+  }
+}
 export default async function handler(req, res){
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "no-store");
