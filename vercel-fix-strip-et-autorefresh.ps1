@@ -1,4 +1,21 @@
-﻿<!doctype html>
+# vercel-fix-strip-et-autorefresh.ps1
+# Overwrites index.html to:
+# - Fix mojibake by using ASCII for current marker ("NOW") and Unicode escapes for ✅/❌
+# - Display ET time ranges (start-end) per round
+# - Auto refresh on each new round boundary (re-run, no full reload)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+function Write-FileUtf8Bom([string]$Path, [string]$Content) {
+  $dir = Split-Path -Parent $Path
+  if ($dir -and !(Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+  $utf8Bom = New-Object System.Text.UTF8Encoding($true)
+  [System.IO.File]::WriteAllText($Path, $Content, $utf8Bom)
+}
+
+$indexHtml = @'
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -266,7 +283,7 @@
           <div class="strip" id="strip"></div>
         </div>
 
-        <div class="status" id="status">Loading latest slugâ€¦</div>
+        <div class="status" id="status">Loading latest slug…</div>
       </div>
 
       <div class="row2">
@@ -366,16 +383,20 @@
           let label = "?";
           if (r.kind === "current"){
             cls = "current";
+            label = "NOW"; // ASCII; avoids mojibake
           } else if (r.outcome === "Up"){
             cls = "up";
+            label = "\\u2705"; // ✅
           } else if (r.outcome === "Down"){
             cls = "down";
+            label = "\\u274C"; // ❌
           } else {
             cls = "unk";
+            label = "?";
           }
 
           dot.className = `dot ${cls}`;
-          dot.innerHTML = ""; // no text, just colored circle
+          dot.innerHTML = `<span>${label}</span>`;
 
           const range = document.createElement("div");
           range.className = "range mono";
@@ -468,7 +489,7 @@
       }
 
       async function loadLatest(){
-        setStatus("Loading latest slugâ€¦");
+        setStatus("Loading latest slug…");
         const rs = num(document.querySelector("#roundSeconds").value, 300);
         const { res, text, j } = await callJson(`/api/latest?prefix=btc-updown-5m-&roundSeconds=${encodeURIComponent(String(rs))}&lookbackSteps=240`);
         if (!res.ok) { setStatus(["ERROR /api/latest", `HTTP ${res.status}`, text.slice(0, 3000)]); return null; }
@@ -528,7 +549,7 @@
           rawEl.href = url;
           rawEl.textContent = url;
 
-          setStatus("Running backtestâ€¦");
+          setStatus("Running backtest…");
           const { res, text, j } = await callJson(url);
           if (!res.ok){ setStatus(["ERROR /api/stats", `HTTP ${res.status}`, text.slice(0, 3500)]); return; }
           if (j?.error){ setStatus(["ERROR /api/stats", JSON.stringify(j, null, 2).slice(0, 3500)]); return; }
@@ -563,3 +584,12 @@
     </script>
   </body>
 </html>
+'@
+
+Write-FileUtf8Bom ".\index.html" $indexHtml
+
+Write-Host "Updated index.html."
+Write-Host "Now commit and push:"
+Write-Host "  git add index.html"
+Write-Host "  git commit -m `"Fix current marker + ET time windows + auto refresh`""
+Write-Host "  git push"
