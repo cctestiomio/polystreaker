@@ -1,3 +1,186 @@
+# vercel-fix-latest.ps1
+# Patches repo to work on Vercel:
+# - Static index.html at /
+# - /api/latest returns latest existing slug (probes Gamma API)
+# - /api/stats runs backtest; if baseSlug blank uses latest slug
+# - Adds timeouts + better error surfacing
+# Run: powershell.exe -ExecutionPolicy Bypass -File .\vercel-fix-latest.ps1
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+function Write-FileUtf8NoBom([string]$Path, [string]$Content) {
+  $dir = Split-Path -Parent $Path
+  if ($dir -and !(Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
+}
+
+# --------------------------
+# index.html (static homepage)
+# --------------------------
+$indexHtml = @'
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Polystreaker</title>
+    <style>
+      body { font-family: system-ui, Arial; margin: 24px; }
+      code { background: #f3f3f3; padding: 2px 6px; border-radius: 6px; }
+      table { border-collapse: collapse; margin-top: 12px; }
+      th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: right; }
+      th:first-child, td:first-child { text-align: center; }
+      .row { margin: 10px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      input { padding: 6px 8px; }
+      button { padding: 7px 10px; cursor: pointer; }
+      #status { white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>Polymarket streak backtest</h1>
+
+    <div class="row">
+      <label>Base slug:</label>
+      <input id="baseSlug" style="width: 360px" placeholder="(auto: latest btc-updown-5m-...)" />
+      <label>Count:</label>
+      <input id="count" style="width: 80px" value="40" />
+      <button id="run">Run</button>
+    </div>
+
+    <pre id="status"></pre>
+    <div id="out"></div>
+
+    <script type="module">
+      const statusEl = document.querySelector("#status");
+      const outEl = document.querySelector("#out");
+      const baseSlugEl = document.querySelector("#baseSlug");
+      const countEl = document.querySelector("#count");
+
+      function pct(x) { return (x == null) ? "n/a" : (x * 100).toFixed(2) + "%"; }
+
+      function renderError(msg, extra="") {
+        statusEl.textContent = "ERROR: " + msg + (extra ? ("\n\n" + extra) : "");
+        outEl.innerHTML = "";
+      }
+
+      async function loadLatest() {
+        statusEl.textContent = "Loading latest slug…";
+        outEl.innerHTML = "";
+
+        let res, text;
+        try {
+          res = await fetch(`/api/latest?prefix=btc-updown-5m-&roundSeconds=300`, { headers: { "accept": "application/json" } });
+          text = await res.text();
+        } catch (e) {
+          renderError("Failed to call /api/latest", String(e?.message ?? e));
+          return;
+        }
+
+        if (!res.ok) {
+          renderError(`Latest slug HTTP ${res.status}`, text.slice(0, 2000));
+          return;
+        }
+
+        let j;
+        try { j = JSON.parse(text); } catch { renderError("Latest slug JSON parse failed", text.slice(0, 2000)); return; }
+
+        if (!j.latestSlug) {
+          renderError("No latestSlug returned", JSON.stringify(j, null, 2));
+          return;
+        }
+
+        baseSlugEl.value = j.latestSlug;
+        statusEl.textContent =
+          `Latest slug: ${j.latestSlug}\n` +
+          (j.nextSlug ? `Next slug:   ${j.nextSlug}\n` : "") +
+          (j.latestTs ? `Latest ts:   ${j.latestTs}\n` : "");
+      }
+
+      async function run() {
+        outEl.innerHTML = "";
+        statusEl.textContent = "Running…";
+
+        const baseSlug = baseSlugEl.value.trim(); // can be blank; API will default to latest
+        const count = countEl.value.trim();
+
+        const qs = new URLSearchParams({
+          baseSlug,
+          count,
+          minStreak: "3",
+          maxStreak: "8",
+          roundSeconds: "300",
+          concurrency: "4"
+        });
+
+        const url = `/api/stats?${qs.toString()}`;
+
+        let res, text;
+        try {
+          res = await fetch(url, { headers: { "accept": "application/json" } });
+          text = await res.text();
+        } catch (e) {
+          renderError("Request failed", String(e?.message ?? e));
+          return;
+        }
+
+        if (!res.ok) {
+          renderError(`HTTP ${res.status}`, text.slice(0, 4000));
+          return;
+        }
+
+        let j;
+        try { j = JSON.parse(text); } catch { renderError("Could not parse JSON", text.slice(0, 4000)); return; }
+
+        if (j.error) {
+          renderError("API error", JSON.stringify(j, null, 2).slice(0, 4000));
+          return;
+        }
+
+        statusEl.textContent =
+          `Using baseSlug: ${j.input?.baseSlug}\n` +
+          `Resolved rounds: ${j.totals?.resolvedRounds}/${j.totals?.rounds}\n` +
+          `Signals: ${j.totals?.signals}\n` +
+          `API: ${url}`;
+
+        const byN = j.byN || {};
+        const ns = Object.keys(byN).sort((a,b) => Number(a)-Number(b));
+        const rows = ns.map(n => {
+          const b = byN[n];
+          return `<tr><td>${n}</td><td>${b.signals}</td><td>${b.wins}</td><td>${pct(b.winRate)}</td></tr>`;
+        }).join("");
+
+        const next = j.nextPrediction?.suggestions?.map(s =>
+          `<li>N=${s.n}: previous were ${s.prevDir} ⇒ predict <b>${s.predictNext}</b> (nextTs=${s.nextTs})</li>`
+        ).join("") ?? "";
+
+        outEl.innerHTML = `
+          <h2>Win rates</h2>
+          <table>
+            <thead><tr><th>N</th><th>Signals</th><th>Wins</th><th>Win rate</th></tr></thead>
+            <tbody>${rows || ""}</tbody>
+          </table>
+
+          <h2>Next-round suggestions</h2>
+          <ul>${next || "<li>No current 3–8 streak detected (or not enough resolved rounds).</li>"}</ul>
+
+          <p>Raw JSON: <a href="${url}" target="_blank" rel="noreferrer"><code>${url}</code></a></p>
+        `;
+      }
+
+      document.querySelector("#run").addEventListener("click", run);
+      await loadLatest();
+      await run();
+    </script>
+  </body>
+</html>
+'@
+
+# --------------------------------------------
+# lib/backtest-core.js (shared logic for APIs)
+# --------------------------------------------
+$backtestCore = @'
 // lib/backtest-core.js
 const gammaBase = "https://gamma-api.polymarket.com";
 const clobBase = "https://clob.polymarket.com";
@@ -268,3 +451,104 @@ export async function runBacktest({ baseSlug, count, minStreak, maxStreak, round
     nextPrediction
   };
 }
+'@
+
+# ------------------------
+# Vercel API: /api/latest
+# ------------------------
+$apiLatest = @'
+// api/latest.js
+import { getLatestExistingSlug } from "../lib/backtest-core.js";
+
+export const config = { runtime: "nodejs" };
+
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "no-store");
+
+  try {
+    const url = new URL(req.url, "http://localhost");
+    const prefix = url.searchParams.get("prefix") ?? "btc-updown-5m-";
+    const roundSeconds = Number(url.searchParams.get("roundSeconds") ?? 300);
+
+    const result = await getLatestExistingSlug({ prefix, roundSeconds, lookbackSteps: 48 });
+    res.status(200).json(result);
+  } catch (e) {
+    res.status(500).json({ error: String(e?.message ?? e), stack: String(e?.stack ?? "") });
+  }
+}
+'@
+
+# -----------------------
+# Vercel API: /api/stats
+# -----------------------
+$apiStats = @'
+// api/stats.js
+import { runBacktest } from "../lib/backtest-core.js";
+
+export const config = { runtime: "nodejs" };
+
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "no-store");
+
+  try {
+    const url = new URL(req.url, "http://localhost");
+
+    const baseSlug = (url.searchParams.get("baseSlug") ?? "").trim(); // blank => auto-latest
+    const count = Number(url.searchParams.get("count") ?? 40);
+    const minStreak = Number(url.searchParams.get("minStreak") ?? 3);
+    const maxStreak = Number(url.searchParams.get("maxStreak") ?? 8);
+    const roundSeconds = Number(url.searchParams.get("roundSeconds") ?? 300);
+    const concurrency = Number(url.searchParams.get("concurrency") ?? 4);
+
+    const result = await runBacktest({ baseSlug, count, minStreak, maxStreak, roundSeconds, concurrency });
+    res.status(result?.error ? 500 : 200).json(result);
+  } catch (e) {
+    res.status(500).json({ error: String(e?.message ?? e), stack: String(e?.stack ?? "") });
+  }
+}
+'@
+
+# -------------
+# vercel.json
+# -------------
+$vercelJson = @'
+{
+  "functions": {
+    "api/latest.js": { "maxDuration": 30 },
+    "api/stats.js":  { "maxDuration": 60 }
+  }
+}
+'@
+
+# Write/overwrite files
+Write-FileUtf8NoBom ".\index.html" $indexHtml
+Write-FileUtf8NoBom ".\lib\backtest-core.js" $backtestCore
+Write-FileUtf8NoBom ".\api\latest.js" $apiLatest
+Write-FileUtf8NoBom ".\api\stats.js" $apiStats
+Write-FileUtf8NoBom ".\vercel.json" $vercelJson
+
+# Ensure package.json is Vercel-friendly (Node 20, ESM)
+if (Test-Path ".\package.json") {
+  $pkg = Get-Content ".\package.json" -Raw | ConvertFrom-Json
+
+  if (-not $pkg.engines) { $pkg | Add-Member -NotePropertyName engines -NotePropertyValue (@{}) }
+  $pkg.engines.node = "20.x"
+
+  # Ensure "type":"module" so our ESM imports work
+  if (-not $pkg.type) { $pkg | Add-Member -NotePropertyName type -NotePropertyValue "module" }
+
+  ($pkg | ConvertTo-Json -Depth 50) | Set-Content -Encoding UTF8 ".\package.json"
+}
+
+Write-Host "Patched repo for Vercel."
+Write-Host "Now run:"
+Write-Host "  git add ."
+Write-Host "  git commit -m `"Vercel fix: latest slug + stats API + UI`""
+Write-Host "  git push"
+Write-Host ""
+Write-Host "After redeploy, test:"
+Write-Host "  https://<your-app>.vercel.app/api/latest"
+Write-Host "  https://<your-app>.vercel.app/api/stats"
+Write-Host "  https://<your-app>.vercel.app/"

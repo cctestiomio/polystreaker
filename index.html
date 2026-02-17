@@ -10,15 +10,20 @@
       table { border-collapse: collapse; margin-top: 12px; }
       th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: right; }
       th:first-child, td:first-child { text-align: center; }
-      .row { margin: 10px 0; }
+      .row { margin: 10px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      input { padding: 6px 8px; }
+      button { padding: 7px 10px; cursor: pointer; }
+      #status { white-space: pre-wrap; }
     </style>
   </head>
   <body>
     <h1>Polymarket streak backtest</h1>
 
     <div class="row">
-      Base slug: <input id="baseSlug" style="width: 360px" value="btc-updown-5m-1771290300" />
-      Count: <input id="count" style="width: 80px" value="40" />
+      <label>Base slug:</label>
+      <input id="baseSlug" style="width: 360px" placeholder="(auto: latest btc-updown-5m-...)" />
+      <label>Count:</label>
+      <input id="count" style="width: 80px" value="40" />
       <button id="run">Run</button>
     </div>
 
@@ -28,46 +33,123 @@
     <script type="module">
       const statusEl = document.querySelector("#status");
       const outEl = document.querySelector("#out");
+      const baseSlugEl = document.querySelector("#baseSlug");
+      const countEl = document.querySelector("#count");
 
       function pct(x) { return (x == null) ? "n/a" : (x * 100).toFixed(2) + "%"; }
 
+      function renderError(msg, extra="") {
+        statusEl.textContent = "ERROR: " + msg + (extra ? ("\n\n" + extra) : "");
+        outEl.innerHTML = "";
+      }
+
+      async function loadLatest() {
+        statusEl.textContent = "Loading latest slugâ€¦";
+        outEl.innerHTML = "";
+
+        let res, text;
+        try {
+          res = await fetch(`/api/latest?prefix=btc-updown-5m-&roundSeconds=300`, { headers: { "accept": "application/json" } });
+          text = await res.text();
+        } catch (e) {
+          renderError("Failed to call /api/latest", String(e?.message ?? e));
+          return;
+        }
+
+        if (!res.ok) {
+          renderError(`Latest slug HTTP ${res.status}`, text.slice(0, 2000));
+          return;
+        }
+
+        let j;
+        try { j = JSON.parse(text); } catch { renderError("Latest slug JSON parse failed", text.slice(0, 2000)); return; }
+
+        if (!j.latestSlug) {
+          renderError("No latestSlug returned", JSON.stringify(j, null, 2));
+          return;
+        }
+
+        baseSlugEl.value = j.latestSlug;
+        statusEl.textContent =
+          `Latest slug: ${j.latestSlug}\n` +
+          (j.nextSlug ? `Next slug:   ${j.nextSlug}\n` : "") +
+          (j.latestTs ? `Latest ts:   ${j.latestTs}\n` : "");
+      }
+
       async function run() {
         outEl.innerHTML = "";
-        statusEl.textContent = "Running… (try Count=40 first; 100 may take longer)";
+        statusEl.textContent = "Runningâ€¦";
 
-        const baseSlug = document.querySelector("#baseSlug").value.trim();
-        const count = document.querySelector("#count").value.trim();
+        const baseSlug = baseSlugEl.value.trim(); // can be blank; API will default to latest
+        const count = countEl.value.trim();
 
-        const url = `/api/stats?baseSlug=${encodeURIComponent(baseSlug)}&count=${encodeURIComponent(count)}&minStreak=3&maxStreak=8&roundSeconds=300&concurrency=4`;
-        const res = await fetch(url);
-        const j = await res.json();
+        const qs = new URLSearchParams({
+          baseSlug,
+          count,
+          minStreak: "3",
+          maxStreak: "8",
+          roundSeconds: "300",
+          concurrency: "4"
+        });
 
-        statusEl.textContent = `Resolved rounds: ${j.totals.resolvedRounds}/${j.totals.rounds} | Signals: ${j.totals.signals}`;
+        const url = `/api/stats?${qs.toString()}`;
 
-        const byN = j.byN;
-        const rows = Object.keys(byN).map(n => {
+        let res, text;
+        try {
+          res = await fetch(url, { headers: { "accept": "application/json" } });
+          text = await res.text();
+        } catch (e) {
+          renderError("Request failed", String(e?.message ?? e));
+          return;
+        }
+
+        if (!res.ok) {
+          renderError(`HTTP ${res.status}`, text.slice(0, 4000));
+          return;
+        }
+
+        let j;
+        try { j = JSON.parse(text); } catch { renderError("Could not parse JSON", text.slice(0, 4000)); return; }
+
+        if (j.error) {
+          renderError("API error", JSON.stringify(j, null, 2).slice(0, 4000));
+          return;
+        }
+
+        statusEl.textContent =
+          `Using baseSlug: ${j.input?.baseSlug}\n` +
+          `Resolved rounds: ${j.totals?.resolvedRounds}/${j.totals?.rounds}\n` +
+          `Signals: ${j.totals?.signals}\n` +
+          `API: ${url}`;
+
+        const byN = j.byN || {};
+        const ns = Object.keys(byN).sort((a,b) => Number(a)-Number(b));
+        const rows = ns.map(n => {
           const b = byN[n];
           return `<tr><td>${n}</td><td>${b.signals}</td><td>${b.wins}</td><td>${pct(b.winRate)}</td></tr>`;
         }).join("");
 
         const next = j.nextPrediction?.suggestions?.map(s =>
-          `<li>N=${s.n}: previous were ${s.prevDir} ⇒ predict <b>${s.predictNext}</b> (nextTs=${s.nextTs})</li>`
+          `<li>N=${s.n}: previous were ${s.prevDir} â‡’ predict <b>${s.predictNext}</b> (nextTs=${s.nextTs})</li>`
         ).join("") ?? "";
 
         outEl.innerHTML = `
           <h2>Win rates</h2>
           <table>
             <thead><tr><th>N</th><th>Signals</th><th>Wins</th><th>Win rate</th></tr></thead>
-            <tbody>${rows}</tbody>
+            <tbody>${rows || ""}</tbody>
           </table>
+
           <h2>Next-round suggestions</h2>
-          <ul>${next || "<li>No current 3–8 streak detected.</li>"}</ul>
+          <ul>${next || "<li>No current 3â€“8 streak detected (or not enough resolved rounds).</li>"}</ul>
+
           <p>Raw JSON: <a href="${url}" target="_blank" rel="noreferrer"><code>${url}</code></a></p>
         `;
       }
 
       document.querySelector("#run").addEventListener("click", run);
-      run();
+      await loadLatest();
+      await run();
     </script>
   </body>
 </html>

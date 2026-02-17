@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/latest.js": { "maxDuration": 30 },
+    "api/stats.js":  { "maxDuration": 60 }
+  }
+}
