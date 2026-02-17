@@ -6,5 +6,5 @@
     "api/stats.js": {
       "maxDuration": 60
     }
-  },
+  }
 }
