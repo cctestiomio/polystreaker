@@ -17,8 +17,10 @@ export default async function handler(req, res){
     const maxStreak = Number(url.searchParams.get("maxStreak") ?? 8);
     const roundSeconds = Number(url.searchParams.get("roundSeconds") ?? 300);
     const concurrency = Number(url.searchParams.get("concurrency") ?? 3);
+    const stripCount = Number(url.searchParams.get("stripCount") ?? 12);
+    const signalsLimit = Number(url.searchParams.get("signalsLimit") ?? 25);
 
-    const result = await runBacktest({ baseSlug, count, offset, minStreak, maxStreak, roundSeconds, concurrency });
+    const result = await runBacktest({ baseSlug, count, offset, minStreak, maxStreak, roundSeconds, concurrency, stripCount, signalsLimit });
     res.status(result?.error ? 500 : 200).json(result);
   } catch(e){
     res.status(500).json({ error: String(e?.message ?? e), stack: String(e?.stack ?? "") });
