@@ -6,8 +6,23 @@
     <title>Polystreaker</title>
     <style>
       :root{
+        /* Light default */
+        --bg:#f6f7fb;
+        --card:#ffffff;
+        --card2:#ffffff;
+        --text:#0e1222;
+        --muted:#4b587a;
+        --border:rgba(16,24,40,.14);
+        --good:#0a8f3c;
+        --bad:#d92d20;
+        --warn:#b54708;
+        --accent:#2563eb;
+        --shadow: 0 10px 28px rgba(16,24,40,.08);
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      }
+      [data-theme="dark"]{
         --bg:#0b1020;
-        --card:#111a33;
+        --card:#101a33;
         --card2:#0f1730;
         --text:#e8ecff;
         --muted:#aab4e6;
@@ -16,75 +31,84 @@
         --bad:#ff4d4d;
         --warn:#ffcc66;
         --accent:#6ea8ff;
+        --shadow: 0 12px 32px rgba(0,0,0,.35);
       }
       *{box-sizing:border-box}
       body{
         margin:0;
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-        background: radial-gradient(1200px 700px at 15% 10%, rgba(110,168,255,.18), transparent 55%),
-                    radial-gradient(1200px 700px at 85% 20%, rgba(46,204,113,.12), transparent 55%),
-                    var(--bg);
+        background: var(--bg);
         color:var(--text);
       }
       a{ color:var(--accent); text-decoration:none }
       a:hover{ text-decoration:underline }
-      .wrap{ max-width:1050px; margin:28px auto; padding:0 16px; }
-      .title{
-        display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+      .wrap{ max-width:1120px; margin:26px auto; padding:0 16px; }
+      .top{
+        display:flex; align-items:center; justify-content:space-between; gap:12px;
         margin-bottom:14px;
       }
-      h1{ font-size:22px; margin:0; letter-spacing:.2px }
-      .sub{ color:var(--muted); font-size:13px }
+      .title h1{ font-size:22px; margin:0; letter-spacing:.2px }
+      .title .sub{ color:var(--muted); font-size:13px; margin-top:4px; }
       .card{
-        background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+        background: linear-gradient(180deg, rgba(255,255,255,.65), rgba(255,255,255,.35));
         border:1px solid var(--border);
         border-radius:14px;
         padding:14px;
-        box-shadow: 0 12px 32px rgba(0,0,0,.35);
+        box-shadow: var(--shadow);
+      }
+      [data-theme="dark"] .card{
+        background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
       }
       .grid{
         display:grid;
-        grid-template-columns: 1.7fr 1fr 1fr 1fr 1fr 1fr;
+        grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr 1fr 1fr;
         gap:10px;
       }
       label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
       input{
         width:100%;
-        background: rgba(0,0,0,.22);
+        background: rgba(255,255,255,.65);
         border:1px solid var(--border);
         color:var(--text);
         padding:9px 10px;
         border-radius:10px;
         outline:none;
       }
-      input:focus{ border-color: rgba(110,168,255,.65); box-shadow:0 0 0 3px rgba(110,168,255,.18); }
-      .btnrow{ display:flex; gap:10px; align-items:end; justify-content:flex-end; }
+      [data-theme="dark"] input{
+        background: rgba(0,0,0,.22);
+      }
+      input:focus{ border-color: rgba(37,99,235,.55); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+      .btnrow{ display:flex; gap:10px; align-items:end; justify-content:flex-end; margin-top:10px; flex-wrap:wrap; }
       button{
-        background: linear-gradient(180deg, rgba(110,168,255,.95), rgba(110,168,255,.70));
+        background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(37,99,235,.78));
         border:0;
-        color:#08102a;
+        color:white;
         font-weight:700;
         padding:10px 12px;
         border-radius:10px;
         cursor:pointer;
       }
       button.secondary{
-        background: rgba(255,255,255,.08);
+        background: rgba(0,0,0,.02);
         color: var(--text);
         border:1px solid var(--border);
+      }
+      [data-theme="dark"] button.secondary{
+        background: rgba(255,255,255,.08);
       }
       button:disabled{ opacity:.55; cursor:not-allowed; }
       .status{
         margin-top:12px;
-        background: rgba(0,0,0,.18);
+        background: rgba(0,0,0,.02);
         border:1px solid var(--border);
         border-radius:14px;
         padding:12px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-family: var(--mono);
         font-size:12px;
         color: var(--text);
         white-space: pre-wrap;
       }
+      [data-theme="dark"] .status{ background: rgba(0,0,0,.18); }
       .row2{
         display:grid;
         grid-template-columns: 1.2fr 1fr;
@@ -97,41 +121,62 @@
         overflow:hidden;
         border-radius:14px;
         border:1px solid var(--border);
-        background: rgba(0,0,0,.14);
+        background: rgba(255,255,255,.65);
       }
-      th,td{ padding:10px 10px; border-bottom:1px solid rgba(255,255,255,.08); text-align:right; }
+      [data-theme="dark"] table{ background: rgba(0,0,0,.14); }
+      th,td{ padding:10px 10px; border-bottom:1px solid rgba(16,24,40,.08); text-align:right; }
+      [data-theme="dark"] th,[data-theme="dark"] td{ border-bottom:1px solid rgba(255,255,255,.08); }
       th:first-child, td:first-child{ text-align:center; }
-      th{ font-size:12px; color:var(--muted); font-weight:700; background: rgba(255,255,255,.04); }
+      th{ font-size:12px; color:var(--muted); font-weight:800; background: rgba(0,0,0,.02); }
+      [data-theme="dark"] th{ background: rgba(255,255,255,.04); }
       tr:last-child td{ border-bottom:0; }
-      .pill{
-        display:inline-block;
-        padding:3px 8px;
-        border-radius:999px;
-        font-size:12px;
-        border:1px solid var(--border);
-        background: rgba(255,255,255,.06);
-        color: var(--muted);
-      }
-      .good{ color: var(--good); font-weight:800; }
-      .bad{ color: var(--bad); font-weight:800; }
+      .good{ color: var(--good); font-weight:900; }
+      .bad{ color: var(--bad); font-weight:900; }
       .muted{ color: var(--muted); }
-      .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-      ul{ margin:10px 0 0 18px; color: var(--text); }
-      .foot{ margin-top:12px; color: var(--muted); font-size:12px; }
-      @media (max-width: 980px){
+      .mono{ font-family: var(--mono); }
+      ul{ margin:10px 0 0 18px; }
+      .foot{ margin-top:10px; color: var(--muted); font-size:12px; }
+      .toggle{
+        display:flex; align-items:center; gap:10px;
+        padding:8px 10px;
+        border:1px solid var(--border);
+        border-radius:999px;
+        background: rgba(255,255,255,.55);
+        box-shadow: var(--shadow);
+      }
+      [data-theme="dark"] .toggle{ background: rgba(255,255,255,.06); box-shadow:none; }
+      .switch{
+        width:42px; height:24px; border-radius:999px;
+        background: rgba(16,24,40,.18);
+        position:relative;
+        cursor:pointer;
+      }
+      [data-theme="dark"] .switch{ background: rgba(255,255,255,.18); }
+      .knob{
+        width:18px; height:18px; border-radius:50%;
+        background: white;
+        position:absolute; top:3px; left:3px;
+        transition: left .18s ease;
+        box-shadow: 0 6px 14px rgba(0,0,0,.18);
+      }
+      [data-theme="dark"] .knob{ left:21px; background:#e8ecff; }
+      @media (max-width: 1060px){
         .grid{ grid-template-columns: 1fr 1fr; }
-        .btnrow{ justify-content:stretch; }
+        .row2{ grid-template-columns: 1fr; }
       }
     </style>
   </head>
-  <body>
+  <body data-theme="light">
     <div class="wrap">
-      <div class="title">
-        <div>
+      <div class="top">
+        <div class="title">
           <h1>Polymarket streak backtest</h1>
-          <div class="sub">If previous N rounds were all Up (or all Down), predict the opposite next round.</div>
+          <div class="sub">Backtests: if previous N rounds were all Up (or all Down), predict the opposite next round.</div>
         </div>
-        <div class="pill mono" id="buildTag">Vercel</div>
+        <div class="toggle" id="themeToggle" title="Toggle dark mode">
+          <span class="mono" style="font-size:12px;">Light/Dark</span>
+          <div class="switch"><div class="knob"></div></div>
+        </div>
       </div>
 
       <div class="card">
@@ -150,19 +195,23 @@
           </div>
           <div>
             <label>Min streak</label>
-            <input id="minStreak" value="3" />
+            <input id="minStreak" value="2" />
           </div>
           <div>
             <label>Max streak</label>
             <input id="maxStreak" value="8" />
           </div>
           <div>
+            <label>Round seconds</label>
+            <input id="roundSeconds" value="300" />
+          </div>
+          <div>
             <label>Concurrency</label>
-            <input id="concurrency" value="4" />
+            <input id="concurrency" value="3" />
           </div>
         </div>
 
-        <div class="btnrow" style="margin-top:10px">
+        <div class="btnrow">
           <button class="secondary" id="btnLatest">Use latest resolved</button>
           <button id="btnRun">Run</button>
         </div>
@@ -185,7 +234,7 @@
       </div>
 
       <div class="foot">
-        Tip: If you set <span class="mono">Count=2</span> with <span class="mono">Min streak=3</span>, you will see 0 signals (that is expected).
+        If you still see <span class="mono">resolvedRounds: 0</span>, open the Raw JSON link and look at <span class="mono">diagnostics.sampleErrors</span>.
       </div>
     </div>
 
@@ -197,13 +246,24 @@
       const nextEl = document.querySelector("#next");
       const btnRun = document.querySelector("#btnRun");
       const btnLatest = document.querySelector("#btnLatest");
+      const themeToggle = document.querySelector("#themeToggle");
 
       function pct(x){ return (x==null) ? "n/a" : (x*100).toFixed(2) + "%"; }
       function num(v, fallback){ const n = Number(String(v).trim()); return Number.isFinite(n) ? n : fallback; }
+      function setStatus(lines){ statusEl.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines); }
 
-      function setStatus(lines){
-        statusEl.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines);
+      function setTheme(theme){
+        document.body.setAttribute("data-theme", theme);
+        localStorage.setItem("theme", theme);
       }
+      function initTheme(){
+        const saved = localStorage.getItem("theme");
+        setTheme(saved === "dark" ? "dark" : "light");
+      }
+      themeToggle.addEventListener("click", ()=>{
+        const cur = document.body.getAttribute("data-theme");
+        setTheme(cur === "dark" ? "light" : "dark");
+      });
 
       function renderWinrates(byN){
         const ns = Object.keys(byN || {}).sort((a,b)=>Number(a)-Number(b));
@@ -227,7 +287,7 @@
         winratesEl.innerHTML = `
           <table>
             <thead>
-              <tr><th>N</th><th>Signals</th><th>Wins</th><th>Losses</th><th>Win rate</th></tr>
+              <tr><th>N</th><th>Signals</th><th class="good">Wins</th><th class="bad">Losses</th><th>Win rate</th></tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>`;
@@ -256,7 +316,7 @@
 
       async function loadLatest(){
         setStatus("Loading latest slugâ€¦");
-        const { res, text, j } = await callJson(`/api/latest?prefix=btc-updown-5m-&roundSeconds=300&lookbackSteps=72`);
+        const { res, text, j } = await callJson(`/api/latest?prefix=btc-updown-5m-&roundSeconds=300&lookbackSteps=120`);
         if (!res.ok) { setStatus(["ERROR /api/latest", `HTTP ${res.status}`, text.slice(0, 3000)]); return; }
 
         const pick = j.latestResolvedSlug || j.latestExistingSlug;
@@ -270,11 +330,12 @@
       }
 
       function makeStatsUrl(){
-        const minStreak = num(document.querySelector("#minStreak").value, 3);
+        const minStreak = num(document.querySelector("#minStreak").value, 2);
         const maxStreak = num(document.querySelector("#maxStreak").value, 8);
         const count = num(document.querySelector("#count").value, 100);
         const offset = num(document.querySelector("#offset").value, 1);
-        const concurrency = num(document.querySelector("#concurrency").value, 4);
+        const concurrency = num(document.querySelector("#concurrency").value, 3);
+        const roundSeconds = num(document.querySelector("#roundSeconds").value, 300);
 
         const qs = new URLSearchParams({
           baseSlug: baseSlugEl.value.trim(),
@@ -282,7 +343,7 @@
           offset: String(offset),
           minStreak: String(minStreak),
           maxStreak: String(maxStreak),
-          roundSeconds: "300",
+          roundSeconds: String(roundSeconds),
           concurrency: String(concurrency)
         });
         return { url: `/api/stats?${qs.toString()}`, minStreak, maxStreak };
@@ -302,13 +363,15 @@
           if (!res.ok){ setStatus(["ERROR /api/stats", `HTTP ${res.status}`, text.slice(0, 3500)]); return; }
           if (j?.error){ setStatus(["ERROR /api/stats", JSON.stringify(j, null, 2).slice(0, 3500)]); return; }
 
+          const diag = j.diagnostics || {};
           setStatus([
             `Using baseSlug:     ${j.input?.baseSlug}`,
             `Backtest slugs:     previous ${j.input?.count} (offset=${j.input?.offset})`,
             `Resolved rounds:    ${j.totals?.resolvedRounds}/${j.totals?.rounds}`,
             `Signals:            ${j.totals?.signals}`,
-            `Diagnostics errors: ${j.diagnostics?.totalErrors ?? 0}`,
-            j.diagnostics?.topErrors?.length ? ("Top errors:\n" + j.diagnostics.topErrors.map(x=>`- ${x.key}: ${x.count}`).join("\n")) : ""
+            `Diagnostics errors: ${diag.totalErrors ?? 0}`,
+            diag.topErrors?.length ? ("Top errors:\n" + diag.topErrors.map(x=>`- ${x.key}: ${x.count}`).join("\n")) : "",
+            diag.sampleErrors?.length ? ("\nSample errors:\n" + diag.sampleErrors.map(x=>`- ${x.slug}: ${x.error}`).join("\n")) : ""
           ].filter(Boolean));
 
           renderWinrates(j.byN);
@@ -318,6 +381,7 @@
         }
       }
 
+      initTheme();
       btnLatest.addEventListener("click", async () => { await loadLatest(); });
       btnRun.addEventListener("click", async () => { await run(); });
 

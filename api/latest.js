@@ -11,7 +11,7 @@ export default async function handler(req, res){
     const url = new URL(req.url, "http://localhost");
     const prefix = url.searchParams.get("prefix") ?? "btc-updown-5m-";
     const roundSeconds = Number(url.searchParams.get("roundSeconds") ?? 300);
-    const lookbackSteps = Number(url.searchParams.get("lookbackSteps") ?? 72);
+    const lookbackSteps = Number(url.searchParams.get("lookbackSteps") ?? 120);
 
     const j = await getLatestSlugs({ prefix, roundSeconds, lookbackSteps });
     res.status(200).json(j);

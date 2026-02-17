@@ -1,10 +1,10 @@
-# vercel-polystreak-fix.ps1
-# Patches repo for Vercel:
-# - Pretty index.html with editable min/max streak, count, offset, concurrency
-# - /api/latest finds latest existing + latest resolved slug
-# - /api/stats backtests PREVIOUS N slugs (default count=100, offset=1)
-# - Better diagnostics (why resolvedRounds is 0)
-# Run: powershell.exe -ExecutionPolicy Bypass -File .\vercel-polystreak-fix.ps1
+# vercel-polystreak-fix2.ps1
+# Fixes:
+# - resolvedRounds=0 by robustly parsing Gamma fields (arrays OR JSON-strings)
+# - Uses Gamma resolved + outcomePrices to infer winner; falls back to CLOB /prices-history
+# - Adds light mode default + dark toggle
+# - Makes min/max streak editable (already) and supports any higher number
+# Run: powershell.exe -ExecutionPolicy Bypass -File .\vercel-polystreak-fix2.ps1
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -28,8 +28,23 @@ $indexHtml = @'
     <title>Polystreaker</title>
     <style>
       :root{
+        /* Light default */
+        --bg:#f6f7fb;
+        --card:#ffffff;
+        --card2:#ffffff;
+        --text:#0e1222;
+        --muted:#4b587a;
+        --border:rgba(16,24,40,.14);
+        --good:#0a8f3c;
+        --bad:#d92d20;
+        --warn:#b54708;
+        --accent:#2563eb;
+        --shadow: 0 10px 28px rgba(16,24,40,.08);
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      }
+      [data-theme="dark"]{
         --bg:#0b1020;
-        --card:#111a33;
+        --card:#101a33;
         --card2:#0f1730;
         --text:#e8ecff;
         --muted:#aab4e6;
@@ -38,75 +53,84 @@ $indexHtml = @'
         --bad:#ff4d4d;
         --warn:#ffcc66;
         --accent:#6ea8ff;
+        --shadow: 0 12px 32px rgba(0,0,0,.35);
       }
       *{box-sizing:border-box}
       body{
         margin:0;
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-        background: radial-gradient(1200px 700px at 15% 10%, rgba(110,168,255,.18), transparent 55%),
-                    radial-gradient(1200px 700px at 85% 20%, rgba(46,204,113,.12), transparent 55%),
-                    var(--bg);
+        background: var(--bg);
         color:var(--text);
       }
       a{ color:var(--accent); text-decoration:none }
       a:hover{ text-decoration:underline }
-      .wrap{ max-width:1050px; margin:28px auto; padding:0 16px; }
-      .title{
-        display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+      .wrap{ max-width:1120px; margin:26px auto; padding:0 16px; }
+      .top{
+        display:flex; align-items:center; justify-content:space-between; gap:12px;
         margin-bottom:14px;
       }
-      h1{ font-size:22px; margin:0; letter-spacing:.2px }
-      .sub{ color:var(--muted); font-size:13px }
+      .title h1{ font-size:22px; margin:0; letter-spacing:.2px }
+      .title .sub{ color:var(--muted); font-size:13px; margin-top:4px; }
       .card{
-        background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+        background: linear-gradient(180deg, rgba(255,255,255,.65), rgba(255,255,255,.35));
         border:1px solid var(--border);
         border-radius:14px;
         padding:14px;
-        box-shadow: 0 12px 32px rgba(0,0,0,.35);
+        box-shadow: var(--shadow);
+      }
+      [data-theme="dark"] .card{
+        background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
       }
       .grid{
         display:grid;
-        grid-template-columns: 1.7fr 1fr 1fr 1fr 1fr 1fr;
+        grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr 1fr 1fr;
         gap:10px;
       }
       label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
       input{
         width:100%;
-        background: rgba(0,0,0,.22);
+        background: rgba(255,255,255,.65);
         border:1px solid var(--border);
         color:var(--text);
         padding:9px 10px;
         border-radius:10px;
         outline:none;
       }
-      input:focus{ border-color: rgba(110,168,255,.65); box-shadow:0 0 0 3px rgba(110,168,255,.18); }
-      .btnrow{ display:flex; gap:10px; align-items:end; justify-content:flex-end; }
+      [data-theme="dark"] input{
+        background: rgba(0,0,0,.22);
+      }
+      input:focus{ border-color: rgba(37,99,235,.55); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+      .btnrow{ display:flex; gap:10px; align-items:end; justify-content:flex-end; margin-top:10px; flex-wrap:wrap; }
       button{
-        background: linear-gradient(180deg, rgba(110,168,255,.95), rgba(110,168,255,.70));
+        background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(37,99,235,.78));
         border:0;
-        color:#08102a;
+        color:white;
         font-weight:700;
         padding:10px 12px;
         border-radius:10px;
         cursor:pointer;
       }
       button.secondary{
-        background: rgba(255,255,255,.08);
+        background: rgba(0,0,0,.02);
         color: var(--text);
         border:1px solid var(--border);
+      }
+      [data-theme="dark"] button.secondary{
+        background: rgba(255,255,255,.08);
       }
       button:disabled{ opacity:.55; cursor:not-allowed; }
       .status{
         margin-top:12px;
-        background: rgba(0,0,0,.18);
+        background: rgba(0,0,0,.02);
         border:1px solid var(--border);
         border-radius:14px;
         padding:12px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-family: var(--mono);
         font-size:12px;
         color: var(--text);
         white-space: pre-wrap;
       }
+      [data-theme="dark"] .status{ background: rgba(0,0,0,.18); }
       .row2{
         display:grid;
         grid-template-columns: 1.2fr 1fr;
@@ -119,41 +143,62 @@ $indexHtml = @'
         overflow:hidden;
         border-radius:14px;
         border:1px solid var(--border);
-        background: rgba(0,0,0,.14);
+        background: rgba(255,255,255,.65);
       }
-      th,td{ padding:10px 10px; border-bottom:1px solid rgba(255,255,255,.08); text-align:right; }
+      [data-theme="dark"] table{ background: rgba(0,0,0,.14); }
+      th,td{ padding:10px 10px; border-bottom:1px solid rgba(16,24,40,.08); text-align:right; }
+      [data-theme="dark"] th,[data-theme="dark"] td{ border-bottom:1px solid rgba(255,255,255,.08); }
       th:first-child, td:first-child{ text-align:center; }
-      th{ font-size:12px; color:var(--muted); font-weight:700; background: rgba(255,255,255,.04); }
+      th{ font-size:12px; color:var(--muted); font-weight:800; background: rgba(0,0,0,.02); }
+      [data-theme="dark"] th{ background: rgba(255,255,255,.04); }
       tr:last-child td{ border-bottom:0; }
-      .pill{
-        display:inline-block;
-        padding:3px 8px;
-        border-radius:999px;
-        font-size:12px;
-        border:1px solid var(--border);
-        background: rgba(255,255,255,.06);
-        color: var(--muted);
-      }
-      .good{ color: var(--good); font-weight:800; }
-      .bad{ color: var(--bad); font-weight:800; }
+      .good{ color: var(--good); font-weight:900; }
+      .bad{ color: var(--bad); font-weight:900; }
       .muted{ color: var(--muted); }
-      .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-      ul{ margin:10px 0 0 18px; color: var(--text); }
-      .foot{ margin-top:12px; color: var(--muted); font-size:12px; }
-      @media (max-width: 980px){
+      .mono{ font-family: var(--mono); }
+      ul{ margin:10px 0 0 18px; }
+      .foot{ margin-top:10px; color: var(--muted); font-size:12px; }
+      .toggle{
+        display:flex; align-items:center; gap:10px;
+        padding:8px 10px;
+        border:1px solid var(--border);
+        border-radius:999px;
+        background: rgba(255,255,255,.55);
+        box-shadow: var(--shadow);
+      }
+      [data-theme="dark"] .toggle{ background: rgba(255,255,255,.06); box-shadow:none; }
+      .switch{
+        width:42px; height:24px; border-radius:999px;
+        background: rgba(16,24,40,.18);
+        position:relative;
+        cursor:pointer;
+      }
+      [data-theme="dark"] .switch{ background: rgba(255,255,255,.18); }
+      .knob{
+        width:18px; height:18px; border-radius:50%;
+        background: white;
+        position:absolute; top:3px; left:3px;
+        transition: left .18s ease;
+        box-shadow: 0 6px 14px rgba(0,0,0,.18);
+      }
+      [data-theme="dark"] .knob{ left:21px; background:#e8ecff; }
+      @media (max-width: 1060px){
         .grid{ grid-template-columns: 1fr 1fr; }
-        .btnrow{ justify-content:stretch; }
+        .row2{ grid-template-columns: 1fr; }
       }
     </style>
   </head>
-  <body>
+  <body data-theme="light">
     <div class="wrap">
-      <div class="title">
-        <div>
+      <div class="top">
+        <div class="title">
           <h1>Polymarket streak backtest</h1>
-          <div class="sub">If previous N rounds were all Up (or all Down), predict the opposite next round.</div>
+          <div class="sub">Backtests: if previous N rounds were all Up (or all Down), predict the opposite next round.</div>
         </div>
-        <div class="pill mono" id="buildTag">Vercel</div>
+        <div class="toggle" id="themeToggle" title="Toggle dark mode">
+          <span class="mono" style="font-size:12px;">Light/Dark</span>
+          <div class="switch"><div class="knob"></div></div>
+        </div>
       </div>
 
       <div class="card">
@@ -172,19 +217,23 @@ $indexHtml = @'
           </div>
           <div>
             <label>Min streak</label>
-            <input id="minStreak" value="3" />
+            <input id="minStreak" value="2" />
           </div>
           <div>
             <label>Max streak</label>
             <input id="maxStreak" value="8" />
           </div>
           <div>
+            <label>Round seconds</label>
+            <input id="roundSeconds" value="300" />
+          </div>
+          <div>
             <label>Concurrency</label>
-            <input id="concurrency" value="4" />
+            <input id="concurrency" value="3" />
           </div>
         </div>
 
-        <div class="btnrow" style="margin-top:10px">
+        <div class="btnrow">
           <button class="secondary" id="btnLatest">Use latest resolved</button>
           <button id="btnRun">Run</button>
         </div>
@@ -207,7 +256,7 @@ $indexHtml = @'
       </div>
 
       <div class="foot">
-        Tip: If you set <span class="mono">Count=2</span> with <span class="mono">Min streak=3</span>, you will see 0 signals (that is expected).
+        If you still see <span class="mono">resolvedRounds: 0</span>, open the Raw JSON link and look at <span class="mono">diagnostics.sampleErrors</span>.
       </div>
     </div>
 
@@ -219,13 +268,24 @@ $indexHtml = @'
       const nextEl = document.querySelector("#next");
       const btnRun = document.querySelector("#btnRun");
       const btnLatest = document.querySelector("#btnLatest");
+      const themeToggle = document.querySelector("#themeToggle");
 
       function pct(x){ return (x==null) ? "n/a" : (x*100).toFixed(2) + "%"; }
       function num(v, fallback){ const n = Number(String(v).trim()); return Number.isFinite(n) ? n : fallback; }
+      function setStatus(lines){ statusEl.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines); }
 
-      function setStatus(lines){
-        statusEl.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines);
+      function setTheme(theme){
+        document.body.setAttribute("data-theme", theme);
+        localStorage.setItem("theme", theme);
       }
+      function initTheme(){
+        const saved = localStorage.getItem("theme");
+        setTheme(saved === "dark" ? "dark" : "light");
+      }
+      themeToggle.addEventListener("click", ()=>{
+        const cur = document.body.getAttribute("data-theme");
+        setTheme(cur === "dark" ? "light" : "dark");
+      });
 
       function renderWinrates(byN){
         const ns = Object.keys(byN || {}).sort((a,b)=>Number(a)-Number(b));
@@ -249,7 +309,7 @@ $indexHtml = @'
         winratesEl.innerHTML = `
           <table>
             <thead>
-              <tr><th>N</th><th>Signals</th><th>Wins</th><th>Losses</th><th>Win rate</th></tr>
+              <tr><th>N</th><th>Signals</th><th class="good">Wins</th><th class="bad">Losses</th><th>Win rate</th></tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>`;
@@ -278,7 +338,7 @@ $indexHtml = @'
 
       async function loadLatest(){
         setStatus("Loading latest slug…");
-        const { res, text, j } = await callJson(`/api/latest?prefix=btc-updown-5m-&roundSeconds=300&lookbackSteps=72`);
+        const { res, text, j } = await callJson(`/api/latest?prefix=btc-updown-5m-&roundSeconds=300&lookbackSteps=120`);
         if (!res.ok) { setStatus(["ERROR /api/latest", `HTTP ${res.status}`, text.slice(0, 3000)]); return; }
 
         const pick = j.latestResolvedSlug || j.latestExistingSlug;
@@ -292,11 +352,12 @@ $indexHtml = @'
       }
 
       function makeStatsUrl(){
-        const minStreak = num(document.querySelector("#minStreak").value, 3);
+        const minStreak = num(document.querySelector("#minStreak").value, 2);
         const maxStreak = num(document.querySelector("#maxStreak").value, 8);
         const count = num(document.querySelector("#count").value, 100);
         const offset = num(document.querySelector("#offset").value, 1);
-        const concurrency = num(document.querySelector("#concurrency").value, 4);
+        const concurrency = num(document.querySelector("#concurrency").value, 3);
+        const roundSeconds = num(document.querySelector("#roundSeconds").value, 300);
 
         const qs = new URLSearchParams({
           baseSlug: baseSlugEl.value.trim(),
@@ -304,7 +365,7 @@ $indexHtml = @'
           offset: String(offset),
           minStreak: String(minStreak),
           maxStreak: String(maxStreak),
-          roundSeconds: "300",
+          roundSeconds: String(roundSeconds),
           concurrency: String(concurrency)
         });
         return { url: `/api/stats?${qs.toString()}`, minStreak, maxStreak };
@@ -324,13 +385,15 @@ $indexHtml = @'
           if (!res.ok){ setStatus(["ERROR /api/stats", `HTTP ${res.status}`, text.slice(0, 3500)]); return; }
           if (j?.error){ setStatus(["ERROR /api/stats", JSON.stringify(j, null, 2).slice(0, 3500)]); return; }
 
+          const diag = j.diagnostics || {};
           setStatus([
             `Using baseSlug:     ${j.input?.baseSlug}`,
             `Backtest slugs:     previous ${j.input?.count} (offset=${j.input?.offset})`,
             `Resolved rounds:    ${j.totals?.resolvedRounds}/${j.totals?.rounds}`,
             `Signals:            ${j.totals?.signals}`,
-            `Diagnostics errors: ${j.diagnostics?.totalErrors ?? 0}`,
-            j.diagnostics?.topErrors?.length ? ("Top errors:\n" + j.diagnostics.topErrors.map(x=>`- ${x.key}: ${x.count}`).join("\n")) : ""
+            `Diagnostics errors: ${diag.totalErrors ?? 0}`,
+            diag.topErrors?.length ? ("Top errors:\n" + diag.topErrors.map(x=>`- ${x.key}: ${x.count}`).join("\n")) : "",
+            diag.sampleErrors?.length ? ("\nSample errors:\n" + diag.sampleErrors.map(x=>`- ${x.slug}: ${x.error}`).join("\n")) : ""
           ].filter(Boolean));
 
           renderWinrates(j.byN);
@@ -340,6 +403,7 @@ $indexHtml = @'
         }
       }
 
+      initTheme();
       btnLatest.addEventListener("click", async () => { await loadLatest(); });
       btnRun.addEventListener("click", async () => { await run(); });
 
@@ -355,9 +419,8 @@ $indexHtml = @'
 # --------------------------------
 $backtestCore = @'
 // lib/backtest-core.js
-// Data sources:
-// - Gamma: https://gamma-api.polymarket.com/markets/slug/{slug}
-// - CLOB prices history: https://clob.polymarket.com/prices-history (tokenId, startTs/endTs or interval) [Polymarket docs]
+// Uses Gamma markets-by-slug, and falls back to CLOB /prices-history for token price history.
+// CLOB prices-history supports tokenId + startTs/endTs (or interval), and returns a `history` list of {t,p}. [Polymarket docs]
 
 const gammaBase = "https://gamma-api.polymarket.com";
 const clobBase = "https://clob.polymarket.com";
@@ -399,9 +462,9 @@ async function fetchJson(url, { retries=2, backoffMs=250, timeoutMs=9000 } = {})
     try{
       const res = await fetch(url, {
         signal: ac.signal,
-        headers: { accept: "application/json", "user-agent":"polystreaker/1.1" }
+        headers: { accept: "application/json", "user-agent":"polystreaker/1.2" }
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} for ${url}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
       return await res.json();
     } catch(e){
       lastErr = e;
@@ -418,67 +481,105 @@ async function fetchMarketBySlug(slug){
   return await fetchJson(u, { retries: 2, timeoutMs: 9000 });
 }
 
+function safeParseArray(v){
+  if (Array.isArray(v)) return v;
+  if (typeof v === "string"){
+    const s = v.trim();
+    // Common: JSON-encoded arrays in string fields
+    if ((s.startsWith("[") && s.endsWith("]")) || (s.startsWith("\"[") && s.endsWith("]\""))){
+      try{
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    // Sometimes stored like: "Up,Down" or "['Up','Down']"
+    if (s.includes(",")){
+      return s.replace(/[\[\]'" ]/g, "").split(",").filter(Boolean);
+    }
+  }
+  return null;
+}
+
 function normalizeUpDown(x){
   const s = String(x ?? "").trim().toLowerCase();
   if (s === "up") return "Up";
   if (s === "down") return "Down";
-  if (s.includes(" up")) return "Up";
-  if (s.includes("down")) return "Down";
+  if (/\bup\b/.test(s)) return "Up";
+  if (/\bdown\b/.test(s)) return "Down";
   return null;
 }
 
-function tryOutcomeFromGammaMarket(market){
-  // Heuristics: different Gamma objects expose resolution differently.
-  const outcomes = market?.outcomes ?? market?.market?.outcomes;
-  const prices = market?.outcomePrices ?? market?.outcome_prices ?? market?.market?.outcomePrices ?? market?.market?.outcome_prices;
-  const resolvedFlag = market?.resolved ?? market?.market?.resolved ?? market?.isResolved ?? market?.market?.isResolved;
+function pickWinnerFromOutcomePrices(outcomesRaw, outcomePricesRaw){
+  const outcomes = safeParseArray(outcomesRaw);
+  const prices = safeParseArray(outcomePricesRaw);
 
-  // If a direct outcome/winner field exists:
+  if (!outcomes || !prices || outcomes.length !== prices.length) return null;
+
+  let bestI = -1;
+  let bestP = -Infinity;
+  for (let i=0;i<prices.length;i++){
+    const p = Number(prices[i]);
+    if (!Number.isFinite(p)) continue;
+    if (p > bestP){ bestP = p; bestI = i; }
+  }
+  if (bestI < 0) return null;
+
+  const norm = normalizeUpDown(outcomes[bestI]);
+  return norm ? { outcome: norm, bestPrice: bestP } : null;
+}
+
+function tryOutcomeFromGamma(market){
+  // Gamma often includes resolved + outcomes + outcomePrices. These may be arrays or JSON strings.
+  const resolvedFlag =
+    market?.resolved ?? market?.isResolved ?? market?.market?.resolved ?? market?.market?.isResolved ??
+    market?.closed ?? market?.market?.closed ?? false;
+
   const direct =
     market?.winningOutcome ?? market?.winning_outcome ??
-    market?.winner ?? market?.outcome ?? market?.result ??
-    market?.market?.winningOutcome ?? market?.market?.winner ?? market?.market?.outcome;
+    market?.winner ?? market?.result ?? market?.outcome ??
+    market?.market?.winningOutcome ?? market?.market?.winner ?? market?.market?.result;
 
   const directNorm = normalizeUpDown(direct);
-  if (directNorm) return { outcome: directNorm, source: "gamma-direct" };
+  if (directNorm) return { outcome: directNorm, method: "gamma-direct" };
 
-  // If market is resolved and outcomePrices line up with outcomes, pick max index.
-  if (resolvedFlag && Array.isArray(outcomes) && Array.isArray(prices) && outcomes.length === prices.length){
-    let bestI = 0, bestP = -Infinity;
-    for (let i=0;i<prices.length;i++){
-      const p = Number(prices[i]);
-      if (Number.isFinite(p) && p > bestP){ bestP = p; bestI = i; }
-    }
-    const norm = normalizeUpDown(outcomes[bestI]);
-    if (norm) return { outcome: norm, source: "gamma-outcomePrices" };
+  if (resolvedFlag){
+    const outcomesRaw = market?.outcomes ?? market?.market?.outcomes;
+    const outcomePricesRaw = market?.outcomePrices ?? market?.outcome_prices ?? market?.market?.outcomePrices ?? market?.market?.outcome_prices;
+    const picked = pickWinnerFromOutcomePrices(outcomesRaw, outcomePricesRaw);
+    if (picked?.outcome) return { outcome: picked.outcome, method: "gamma-outcomePrices" };
   }
 
-  return { outcome: null, source: null };
+  return { outcome: null, method: null };
 }
 
 function mapOutcomeToTokenIds(market){
-  const outcomes = market?.outcomes ?? market?.market?.outcomes;
-  const clobTokenIds = market?.clobTokenIds ?? market?.clob_token_ids ?? market?.market?.clobTokenIds ?? market?.market?.clob_token_ids;
+  const outcomesRaw = market?.outcomes ?? market?.market?.outcomes;
+  const clobTokenIdsRaw =
+    market?.clobTokenIds ?? market?.clob_token_ids ?? market?.market?.clobTokenIds ?? market?.market?.clob_token_ids;
 
-  if (!Array.isArray(outcomes) || !Array.isArray(clobTokenIds) || outcomes.length !== clobTokenIds.length){
-    throw new Error("Missing outcomes/clobTokenIds mapping");
+  const outcomes = safeParseArray(outcomesRaw);
+  const clobTokenIds = safeParseArray(clobTokenIdsRaw);
+
+  if (!outcomes || !clobTokenIds || outcomes.length !== clobTokenIds.length){
+    return { upTokenId: null, downTokenId: null, error: "Missing outcomes/clobTokenIds mapping (arrays or JSON strings)." };
   }
 
   const pairs = outcomes.map((o,i)=>({ outcome:String(o), tokenId:String(clobTokenIds[i]) }));
   const up = pairs.find(x=>String(x.outcome).toLowerCase()==="up" || /\bup\b/i.test(x.outcome));
   const down = pairs.find(x=>String(x.outcome).toLowerCase()==="down" || /\bdown\b/i.test(x.outcome));
-  if (!up || !down) throw new Error("Could not find Up/Down in outcomes: " + JSON.stringify(outcomes));
-  return { upTokenId: up.tokenId, downTokenId: down.tokenId };
+  if (!up || !down){
+    return { upTokenId: null, downTokenId: null, error: "Could not find Up/Down in outcomes: " + JSON.stringify(outcomes) };
+  }
+  return { upTokenId: up.tokenId, downTokenId: down.tokenId, error: null };
 }
 
 async function fetchPricesHistory(tokenId, startTs, endTs){
-  // Polymarket docs: /prices-history supports tokenId + startTs/endTs (or interval), fidelity in minutes.
+  // Docs: /prices-history with tokenId, startTs, endTs, fidelity (minutes) [Polymarket docs]
   const paramsA = new URLSearchParams({ tokenId: String(tokenId), startTs: String(startTs), endTs: String(endTs), fidelity: "1" });
   const urlA = `${clobBase}/prices-history?${paramsA.toString()}`;
   try {
     return await fetchJson(urlA, { retries: 2, timeoutMs: 9000 });
   } catch {
-    // Fallback param name
     const paramsB = new URLSearchParams({ token_id: String(tokenId), startTs: String(startTs), endTs: String(endTs), fidelity: "1" });
     const urlB = `${clobBase}/prices-history?${paramsB.toString()}`;
     return await fetchJson(urlB, { retries: 2, timeoutMs: 9000 });
@@ -492,46 +593,41 @@ function lastPriceFromHistory(j){
     const p = Number(last?.p ?? last?.price ?? last?.[1]);
     return Number.isFinite(p) ? p : null;
   }
-  // Some APIs return separate arrays; try to detect minimal shapes
-  if (j?.history && Array.isArray(j.history.p) && j.history.p.length){
-    const p = Number(j.history.p[j.history.p.length - 1]);
-    return Number.isFinite(p) ? p : null;
-  }
   return null;
 }
 
 function inferOutcomeFromFinalPrices(upLast, downLast){
   if (upLast == null || downLast == null) return { outcome: null, settled: false };
-  const outcome = upLast >= downLast ? "Up" : "Down";
-
-  // settled-ish check: winner near 1 and loser near 0
   const hi = Math.max(upLast, downLast);
   const lo = Math.min(upLast, downLast);
   const settled = (hi >= 0.90 && lo <= 0.10);
-
-  return { outcome, settled };
+  const outcome = upLast >= downLast ? "Up" : "Down";
+  return { outcome: settled ? outcome : null, settled };
 }
 
 async function inferResolvedOutcome(market, ts){
-  // 1) Try Gamma fields first (fast, if present)
-  const g = tryOutcomeFromGammaMarket(market);
-  if (g.outcome) return { outcome: g.outcome, method: g.source, upLast: null, downLast: null, settled: true };
+  // 1) Prefer Gamma resolved info
+  const g = tryOutcomeFromGamma(market);
+  if (g.outcome) return { outcome: g.outcome, method: g.method, settled: true, upLast: null, downLast: null };
 
-  // 2) Fall back to CLOB price-history
-  const { upTokenId, downTokenId } = mapOutcomeToTokenIds(market);
+  // 2) Fall back to CLOB /prices-history
+  const map = mapOutcomeToTokenIds(market);
+  if (!map.upTokenId || !map.downTokenId){
+    return { outcome: null, method: "no-token-mapping", settled: false, error: map.error, upLast: null, downLast: null };
+  }
 
   const startTs = ts - 1800; // 30m before
   const endTs = ts + 7200;   // 2h after
   const [upHist, downHist] = await Promise.all([
-    fetchPricesHistory(upTokenId, startTs, endTs),
-    fetchPricesHistory(downTokenId, startTs, endTs)
+    fetchPricesHistory(map.upTokenId, startTs, endTs),
+    fetchPricesHistory(map.downTokenId, startTs, endTs)
   ]);
 
   const upLast = lastPriceFromHistory(upHist);
   const downLast = lastPriceFromHistory(downHist);
-  const { outcome, settled } = inferOutcomeFromFinalPrices(upLast, downLast);
+  const inf = inferOutcomeFromFinalPrices(upLast, downLast);
 
-  return { outcome: settled ? outcome : null, method: "clob-prices-history", upLast, downLast, settled };
+  return { outcome: inf.outcome, method: "clob-prices-history", settled: inf.settled, upLast, downLast };
 }
 
 async function withPool(items, worker, max){
@@ -567,15 +663,7 @@ function computeSignals(rounds, minStreak, maxStreak){
 
       const prevDir = allUp ? "Up" : "Down";
       const prediction = opposite(prevDir);
-      signals.push({
-        n,
-        ts: rounds[i].ts,
-        slug: rounds[i].slug,
-        prevDir,
-        prediction,
-        actual,
-        correct: prediction === actual
-      });
+      signals.push({ n, ts: rounds[i].ts, slug: rounds[i].slug, prevDir, prediction, actual, correct: prediction === actual });
     }
   }
   return signals;
@@ -617,7 +705,7 @@ function latestNextPrediction(rounds, minStreak, maxStreak, roundSeconds){
   return suggestions.length ? { lastResolvedSlug: last.slug, lastResolvedTs: last.ts, suggestions } : null;
 }
 
-export async function getLatestSlugs({ prefix="btc-updown-5m-", roundSeconds=300, lookbackSteps=72 } = {}){
+export async function getLatestSlugs({ prefix="btc-updown-5m-", roundSeconds=300, lookbackSteps=120 } = {}){
   const nowTs = Math.floor(Date.now()/1000);
   let t = Math.floor(nowTs / roundSeconds) * roundSeconds;
 
@@ -633,19 +721,12 @@ export async function getLatestSlugs({ prefix="btc-updown-5m-", roundSeconds=300
         latestExistingSlug = slug;
         nextSlug = prefix + String(t + roundSeconds);
       }
-      // Try to see if it resolves (Gamma direct OR price-history settled)
-      try{
-        const inf = await inferResolvedOutcome(m, t);
-        if (inf.outcome){
-          latestResolvedSlug = slug;
-          break;
-        }
-      } catch {
-        // ignore resolution failure for latest scan
+      const g = tryOutcomeFromGamma(m);
+      if (g.outcome){
+        latestResolvedSlug = slug;
+        break;
       }
-    } catch {
-      // does not exist; keep looking back
-    }
+    } catch {}
     t -= roundSeconds;
   }
 
@@ -656,22 +737,21 @@ export async function runBacktest({
   baseSlug,
   count=100,
   offset=1,
-  minStreak=3,
+  minStreak=2,
   maxStreak=8,
   roundSeconds=300,
-  concurrency=4
+  concurrency=3
 }){
-  // Safety clamps (Vercel-friendly)
-  const cnt = clampInt(count, 2, 200, 100);
-  const off = clampInt(offset, 0, 50, 1);
-  const minS = clampInt(minStreak, 1, 100, 3);
-  const maxS = clampInt(maxStreak, minS, 100, 8);
+  const cnt = clampInt(count, 2, 250, 100);
+  const off = clampInt(offset, 0, 80, 1);
+  const minS = clampInt(minStreak, 1, 200, 2);
+  const maxS = clampInt(maxStreak, minS, 200, 8);
   const rs = clampInt(roundSeconds, 60, 3600, 300);
-  const conc = clampInt(concurrency, 1, 8, 4);
+  const conc = clampInt(concurrency, 1, 8, 3);
 
   let resolvedBaseSlug = String(baseSlug ?? "").trim();
   if (!resolvedBaseSlug){
-    const latest = await getLatestSlugs({ prefix: "btc-updown-5m-", roundSeconds: rs, lookbackSteps: 96 });
+    const latest = await getLatestSlugs({ prefix: "btc-updown-5m-", roundSeconds: rs, lookbackSteps: 180 });
     resolvedBaseSlug = latest.latestResolvedSlug || latest.latestExistingSlug;
     if (!resolvedBaseSlug){
       return { error: "Could not determine a baseSlug (no markets found in lookback window).", latest };
@@ -681,28 +761,29 @@ export async function runBacktest({
   const slugs = buildPreviousSlugs(resolvedBaseSlug, cnt, off, rs);
 
   const errorCounts = new Map();
-  const bumpErr = (key) => errorCounts.set(key, (errorCounts.get(key) ?? 0) + 1);
+  const sampleErrors = [];
+  const bumpErr = (key, slug, msg) => {
+    errorCounts.set(key, (errorCounts.get(key) ?? 0) + 1);
+    if (sampleErrors.length < 8 && slug && msg) sampleErrors.push({ slug, error: msg });
+  };
 
   const rounds = await withPool(slugs, async ({ slug, ts })=>{
     try{
       const market = await fetchMarketBySlug(slug);
-      try{
-        const inf = await inferResolvedOutcome(market, ts);
-        return {
-          slug, ts,
-          resolvedOutcome: inf.outcome,
-          settled: inf.settled,
-          method: inf.method,
-          upFinalPrice: inf.upLast,
-          downFinalPrice: inf.downLast
-        };
-      } catch (e2){
-        bumpErr("inferResolvedOutcome");
-        return { slug, ts, resolvedOutcome: null, error: "inferResolvedOutcome: " + String(e2?.message ?? e2) };
-      }
+      const inf = await inferResolvedOutcome(market, ts);
+      if (inf.error) bumpErr(inf.method || "inferResolvedOutcome", slug, inf.error);
+      return {
+        slug, ts,
+        resolvedOutcome: inf.outcome,
+        settled: inf.settled,
+        method: inf.method,
+        upFinalPrice: inf.upLast,
+        downFinalPrice: inf.downLast
+      };
     } catch (e){
-      bumpErr("fetchMarketBySlug");
-      return { slug, ts, resolvedOutcome: null, error: "fetchMarketBySlug: " + String(e?.message ?? e) };
+      const msg = String(e?.message ?? e);
+      bumpErr("fetchOrInfer", slug, msg);
+      return { slug, ts, resolvedOutcome: null, error: msg };
     }
   }, conc);
 
@@ -712,10 +793,9 @@ export async function runBacktest({
   const byN = summarize(signals, minS, maxS);
   const nextPrediction = latestNextPrediction(rounds, minS, maxS, rs);
 
-  // Diagnostics
   const topErrors = Array.from(errorCounts.entries())
     .sort((a,b)=>b[1]-a[1])
-    .slice(0, 8)
+    .slice(0, 10)
     .map(([key,count])=>({ key, count }));
 
   const totalErrors = Array.from(errorCounts.values()).reduce((a,b)=>a+b, 0);
@@ -729,7 +809,7 @@ export async function runBacktest({
     },
     byN,
     nextPrediction,
-    diagnostics: { totalErrors, topErrors }
+    diagnostics: { totalErrors, topErrors, sampleErrors }
   };
 }
 '@
@@ -751,7 +831,7 @@ export default async function handler(req, res){
     const url = new URL(req.url, "http://localhost");
     const prefix = url.searchParams.get("prefix") ?? "btc-updown-5m-";
     const roundSeconds = Number(url.searchParams.get("roundSeconds") ?? 300);
-    const lookbackSteps = Number(url.searchParams.get("lookbackSteps") ?? 72);
+    const lookbackSteps = Number(url.searchParams.get("lookbackSteps") ?? 120);
 
     const j = await getLatestSlugs({ prefix, roundSeconds, lookbackSteps });
     res.status(200).json(j);
@@ -780,10 +860,10 @@ export default async function handler(req, res){
     const baseSlug = (url.searchParams.get("baseSlug") ?? "").trim();
     const count = Number(url.searchParams.get("count") ?? 100);
     const offset = Number(url.searchParams.get("offset") ?? 1);
-    const minStreak = Number(url.searchParams.get("minStreak") ?? 3);
+    const minStreak = Number(url.searchParams.get("minStreak") ?? 2);
     const maxStreak = Number(url.searchParams.get("maxStreak") ?? 8);
     const roundSeconds = Number(url.searchParams.get("roundSeconds") ?? 300);
-    const concurrency = Number(url.searchParams.get("concurrency") ?? 4);
+    const concurrency = Number(url.searchParams.get("concurrency") ?? 3);
 
     const result = await runBacktest({ baseSlug, count, offset, minStreak, maxStreak, roundSeconds, concurrency });
     res.status(result?.error ? 500 : 200).json(result);
@@ -805,7 +885,6 @@ $vercelJson = @'
 }
 '@
 
-# Write files
 Write-FileUtf8NoBom ".\index.html" $indexHtml
 Write-FileUtf8NoBom ".\lib\backtest-core.js" $backtestCore
 Write-FileUtf8NoBom ".\api\latest.js" $apiLatest
@@ -821,12 +900,14 @@ if (Test-Path ".\package.json") {
   ($pkg | ConvertTo-Json -Depth 50) | Set-Content -Encoding UTF8 ".\package.json"
 }
 
-Write-Host "Patched. Now commit + push:"
-Write-Host "  git add ."
-Write-Host "  git commit -m `"Polystreaker: editable streaks + previous-100 backtest + UI`""
-Write-Host "  git push"
+Write-Host "Patched files:"
+Write-Host "  index.html"
+Write-Host "  lib/backtest-core.js"
+Write-Host "  api/latest.js"
+Write-Host "  api/stats.js"
+Write-Host "  vercel.json"
 Write-Host ""
-Write-Host "After redeploy test:"
-Write-Host "  /api/latest"
-Write-Host "  /api/stats"
-Write-Host "  /"
+Write-Host "Now commit and push:"
+Write-Host "  git add ."
+Write-Host "  git commit -m `"Fix resolution parsing + theme toggle`""
+Write-Host "  git push"
