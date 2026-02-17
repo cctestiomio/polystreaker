@@ -14,7 +14,6 @@
         --border:rgba(16,24,40,.14);
         --good:#0a8f3c;
         --bad:#d92d20;
-        --warn:#b54708;
         --accent:#2563eb;
         --shadow: 0 10px 28px rgba(16,24,40,.08);
         --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -27,7 +26,6 @@
         --border:rgba(255,255,255,.12);
         --good:#2ecc71;
         --bad:#ff4d4d;
-        --warn:#ffcc66;
         --accent:#6ea8ff;
         --shadow: 0 12px 32px rgba(0,0,0,.35);
       }
@@ -44,6 +42,33 @@
       .top{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px; }
       .title h1{ font-size:22px; margin:0; letter-spacing:.2px }
       .title .sub{ color:var(--muted); font-size:13px; margin-top:4px; max-width: 900px; }
+
+      .toggle{
+        display:flex; align-items:center; gap:10px;
+        padding:8px 10px;
+        border:1px solid var(--border);
+        border-radius:999px;
+        background: rgba(0,0,0,.02);
+        box-shadow: var(--shadow);
+        user-select:none;
+        cursor:pointer;
+      }
+      [data-theme="dark"] .toggle{ background: rgba(255,255,255,.06); box-shadow:none; }
+      .switch{
+        width:42px; height:24px; border-radius:999px;
+        background: rgba(16,24,40,.18);
+        position:relative;
+      }
+      [data-theme="dark"] .switch{ background: rgba(255,255,255,.18); }
+      .knob{
+        width:18px; height:18px; border-radius:50%;
+        background: white;
+        position:absolute; top:3px; left:3px;
+        transition: left .18s ease;
+        box-shadow: 0 6px 14px rgba(0,0,0,.18);
+      }
+      [data-theme="dark"] .knob{ left:21px; background:#e8ecff; }
+
       .card{
         background: var(--card);
         border:1px solid var(--border);
@@ -53,7 +78,7 @@
       }
       .grid{
         display:grid;
-        grid-template-columns: 1.7fr 1fr 1fr 1fr 1fr 1fr 1fr;
+        grid-template-columns: 1.7fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
         gap:10px;
       }
       label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
@@ -85,6 +110,7 @@
       }
       [data-theme="dark"] button.secondary{ background: rgba(255,255,255,.08); }
       button:disabled{ opacity:.55; cursor:not-allowed; }
+
       .status{
         margin-top:12px;
         background: rgba(0,0,0,.02);
@@ -96,6 +122,7 @@
         white-space: pre-wrap;
       }
       [data-theme="dark"] .status{ background: rgba(0,0,0,.18); }
+
       .row2{ display:grid; grid-template-columns: 1.25fr 1fr; gap:12px; margin-top:12px; }
       table{
         width:100%;
@@ -118,40 +145,15 @@
       .mono{ font-family: var(--mono); }
       ul{ margin:10px 0 0 18px; }
       .foot{ margin-top:10px; color: var(--muted); font-size:12px; }
-      .toggle{
-        display:flex; align-items:center; gap:10px;
-        padding:8px 10px;
-        border:1px solid var(--border);
-        border-radius:999px;
-        background: rgba(0,0,0,.02);
-        box-shadow: var(--shadow);
-        user-select:none;
-        cursor:pointer;
-      }
-      [data-theme="dark"] .toggle{ background: rgba(255,255,255,.06); box-shadow:none; }
-      .switch{
-        width:42px; height:24px; border-radius:999px;
-        background: rgba(16,24,40,.18);
-        position:relative;
-      }
-      [data-theme="dark"] .switch{ background: rgba(255,255,255,.18); }
-      .knob{
-        width:18px; height:18px; border-radius:50%;
-        background: white;
-        position:absolute; top:3px; left:3px;
-        transition: left .18s ease;
-        box-shadow: 0 6px 14px rgba(0,0,0,.18);
-      }
-      [data-theme="dark"] .knob{ left:21px; background:#e8ecff; }
 
-      /* Round strip */
+      /* Round strip (vertical chips like your example) */
       .stripWrap{ margin-top:12px; }
       .stripTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
       .stripLabel{ color:var(--muted); font-size:12px; font-weight:900; letter-spacing:.2px; }
       .strip{
         display:flex;
-        align-items:center;
-        gap:8px;
+        align-items:flex-start;
+        gap:10px;
         overflow:auto;
         padding:10px;
         border:1px solid var(--border);
@@ -159,37 +161,39 @@
         background: rgba(0,0,0,.01);
       }
       [data-theme="dark"] .strip{ background: rgba(0,0,0,.14); }
+
       .chip{
-        display:flex; align-items:center; gap:8px;
-        min-width: 0;
-      }
-      .chip .time{
-        font-size:12px;
-        color: var(--muted);
-        white-space:nowrap;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        gap:6px;
+        min-width: 112px;
+        flex: 0 0 auto;
       }
       .dot{
-        width:30px; height:30px;
+        width:42px; height:42px;
         border-radius:999px;
         display:flex; align-items:center; justify-content:center;
         border:1px solid var(--border);
         font-weight:900;
-        flex: 0 0 auto;
       }
+      .dot span{ font-family: var(--mono); font-size:14px; line-height:1; }
       .dot.up{ background: rgba(10,143,60,.12); color: var(--good); border-color: rgba(10,143,60,.28); }
       .dot.down{ background: rgba(217,45,32,.12); color: var(--bad); border-color: rgba(217,45,32,.28); }
       .dot.unk{ background: rgba(148,163,184,.18); color: #64748b; border-color: rgba(148,163,184,.35); }
       [data-theme="dark"] .dot.unk{ color: #cbd5e1; }
-      .dot.current{ background: rgba(148,163,184,.26); color: var(--muted); border-style:dashed; }
-      .sep{
-        width:10px; height:2px;
-        background: rgba(148,163,184,.45);
-        border-radius:999px;
-        flex:0 0 auto;
+      .dot.current{
+        background: rgba(148,163,184,.18);
+        color: var(--muted);
+        border-style:dashed;
       }
-      .dot span{ font-size:16px; line-height:1; }
 
-      .mini{ font-size:12px; color:var(--muted); }
+      .range{
+        text-align:center;
+        font-size:12px;
+        color: var(--muted);
+        white-space:nowrap;
+      }
 
       @media (max-width: 1100px){
         .grid{ grid-template-columns: 1fr 1fr; }
@@ -203,8 +207,8 @@
         <div class="title">
           <h1>Polymarket streak backtest</h1>
           <div class="sub">
-            Rule: if the previous N rounds are all Up (or all Down), predict the opposite for the next round.
-            Current slug is shown as a grey dashed circle in the round strip.
+            Round strip shows past rounds + current (grey dashed).
+            Times are shown as ET windows like <span class="mono">8:25-8:30 PM ET</span>.
           </div>
         </div>
         <div class="toggle" id="themeToggle" title="Toggle dark mode">
@@ -243,6 +247,10 @@
             <label>Concurrency</label>
             <input id="concurrency" value="3" />
           </div>
+          <div>
+            <label>Auto refresh</label>
+            <input id="auto" value="on" />
+          </div>
         </div>
 
         <div class="btnrow">
@@ -253,12 +261,12 @@
         <div class="stripWrap">
           <div class="stripTop">
             <div class="stripLabel">Recent rounds (past -> current)</div>
-            <div class="mini mono" id="stripMeta"></div>
+            <div class="mono muted" id="stripMeta"></div>
           </div>
           <div class="strip" id="strip"></div>
         </div>
 
-        <div class="status" id="status">Loading latest slugÃ¢â‚¬Â¦</div>
+        <div class="status" id="status">Loading latest slugâ€¦</div>
       </div>
 
       <div class="row2">
@@ -279,10 +287,6 @@
           </div>
         </div>
       </div>
-
-      <div class="foot">
-        If you still see resolvedRounds: 0, open the Raw JSON link and check diagnostics.sampleErrors.
-      </div>
     </div>
 
     <script type="module">
@@ -297,10 +301,13 @@
       const themeToggle = document.querySelector("#themeToggle");
       const stripEl = document.querySelector("#strip");
       const stripMetaEl = document.querySelector("#stripMeta");
+      const autoEl = document.querySelector("#auto");
+
+      let refreshTimer = null;
 
       function pct(x){ return (x==null) ? "n/a" : (x*100).toFixed(2) + "%"; }
       function num(v, fallback){ const n = Number(String(v).trim()); return Number.isFinite(n) ? n : fallback; }
-      function setStatus(lines){ statusEl.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines); }
+      function setStatus(lines){ statusEl.textContent = Array.isArray(lines) ? lines.join("\\n") : String(lines); }
 
       function setTheme(theme){
         document.body.setAttribute("data-theme", theme);
@@ -315,17 +322,32 @@
         setTheme(cur === "dark" ? "light" : "dark");
       });
 
-      function fmtTime(ts){
-        try{
-          const d = new Date(ts * 1000);
-          return d.toLocaleTimeString([], { hour: "numeric", minute:"2-digit" });
-        } catch { return String(ts); }
+      // ET time formatter
+      const fmtET = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+
+      function splitTimeAmpm(s){
+        // "8:25 PM" -> ["8:25", "PM"] ; "11:05 AM" -> ["11:05", "AM"]
+        const parts = String(s).trim().split(" ");
+        if (parts.length >= 2) return [parts[0], parts[1]];
+        return [String(s).trim(), ""];
       }
 
-      function renderStrip(strip, meta){
-        stripEl.innerHTML = "";
-        stripMetaEl.textContent = meta || "";
+      function formatRangeET(startTs, roundSeconds){
+        const start = fmtET.format(new Date(startTs * 1000));
+        const end = fmtET.format(new Date((startTs + roundSeconds) * 1000));
+        const [st, sa] = splitTimeAmpm(start);
+        const [et, ea] = splitTimeAmpm(end);
+        if (sa && ea && sa === ea) return `${st}-${et} ${ea} ET`;
+        if (sa && ea) return `${st} ${sa}-${et} ${ea} ET`;
+        return `${start}-${end} ET`;
+      }
 
+      function renderStrip(strip, baseSlug, roundSeconds){
+        stripEl.innerHTML = "";
         if (!strip || !strip.length){
           stripEl.innerHTML = "<span class='muted'>No strip data.</span>";
           return;
@@ -333,32 +355,39 @@
 
         const frag = document.createDocumentFragment();
 
-        strip.forEach((r, idx)=>{
-          if (idx > 0){
-            const sep = document.createElement("div");
-            sep.className = "sep";
-            frag.appendChild(sep);
-          }
-
+        strip.forEach((r)=>{
           const chip = document.createElement("div");
           chip.className = "chip";
-          chip.title = `${r.kind.toUpperCase()} | ${r.slug}\nOutcome: ${r.outcome ?? "n/a"}\nMethod: ${r.method ?? "n/a"}`;
+          chip.title = `${r.kind.toUpperCase()} | ${r.slug}\\nOutcome: ${r.outcome ?? "n/a"}\\nMethod: ${r.method ?? "n/a"}`;
 
           const dot = document.createElement("div");
-          let cls = "unk";
-          let sym = "?";
-          if (r.kind === "current"){ cls = "current"; sym = "Ã¢â‚¬Â¢"; }
-          else if (r.outcome === "Up"){ cls = "up"; sym = "\u2705"; }
-          else if (r.outcome === "Down"){ cls = "down"; sym = "\u274C"; }
-          dot.className = `dot ${cls}`;
-          dot.innerHTML = `<span>${sym}</span>`;
 
-          const t = document.createElement("div");
-          t.className = "time mono";
-          t.textContent = fmtTime(r.ts);
+          let cls = "unk";
+          let label = "?";
+          if (r.kind === "current"){
+            cls = "current";
+            label = "NOW"; // ASCII; avoids mojibake
+          } else if (r.outcome === "Up"){
+            cls = "up";
+            label = "\\u2705"; // âœ…
+          } else if (r.outcome === "Down"){
+            cls = "down";
+            label = "\\u274C"; // âŒ
+          } else {
+            cls = "unk";
+            label = "?";
+          }
+
+          dot.className = `dot ${cls}`;
+          dot.innerHTML = `<span>${label}</span>`;
+
+          const range = document.createElement("div");
+          range.className = "range mono";
+          range.textContent = formatRangeET(r.ts, roundSeconds);
 
           chip.appendChild(dot);
-          chip.appendChild(t);
+          chip.appendChild(range);
+
           frag.appendChild(chip);
         });
 
@@ -406,7 +435,7 @@
         nextEl.innerHTML = `<ul>${items}</ul>`;
       }
 
-      function renderSignals(sig){
+      function renderSignals(sig, roundSeconds){
         if (!sig || !sig.length){
           signalsEl.innerHTML = "<div class='muted'>No signals in this backtest window.</div>";
           return;
@@ -416,7 +445,7 @@
           const okTxt = s.correct ? "WIN" : "LOSE";
           return `
             <tr>
-              <td class="mono">${fmtTime(s.ts)}</td>
+              <td class="mono">${formatRangeET(s.ts, roundSeconds)}</td>
               <td class="mono">${s.n}</td>
               <td class="mono">${s.prevDir}</td>
               <td class="mono">${s.prediction}</td>
@@ -428,7 +457,7 @@
         signalsEl.innerHTML = `
           <table>
             <thead>
-              <tr><th>Time</th><th>N</th><th>Prev</th><th>Pred</th><th>Actual</th><th>Result</th></tr>
+              <tr><th>ET window</th><th>N</th><th>Prev</th><th>Pred</th><th>Actual</th><th>Result</th></tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>`;
@@ -443,19 +472,13 @@
       }
 
       async function loadLatest(){
-        setStatus("Loading latest slugÃ¢â‚¬Â¦");
+        setStatus("Loading latest slugâ€¦");
         const rs = num(document.querySelector("#roundSeconds").value, 300);
-        const { res, text, j } = await callJson(`/api/latest?prefix=btc-updown-5m-&roundSeconds=${encodeURIComponent(String(rs))}&lookbackSteps=180`);
-        if (!res.ok) { setStatus(["ERROR /api/latest", `HTTP ${res.status}`, text.slice(0, 3000)]); return; }
-
+        const { res, text, j } = await callJson(`/api/latest?prefix=btc-updown-5m-&roundSeconds=${encodeURIComponent(String(rs))}&lookbackSteps=240`);
+        if (!res.ok) { setStatus(["ERROR /api/latest", `HTTP ${res.status}`, text.slice(0, 3000)]); return null; }
         const pick = j.latestResolvedSlug || j.latestExistingSlug;
         if (pick) baseSlugEl.value = pick;
-
-        setStatus([
-          `Latest existing: ${j.latestExistingSlug || "n/a"}`,
-          `Latest resolved: ${j.latestResolvedSlug || "n/a"}`,
-          `Next slug:       ${j.nextSlug || "n/a"}`
-        ]);
+        return j;
       }
 
       function makeStatsUrl(){
@@ -477,7 +500,24 @@
           stripCount: "12",
           signalsLimit: "25"
         });
-        return { url: `/api/stats?${qs.toString()}`, minStreak, maxStreak };
+        return { url: `/api/stats?${qs.toString()}`, minStreak, maxStreak, roundSeconds };
+      }
+
+      function scheduleAutoRefresh(roundSeconds){
+        if (refreshTimer) clearTimeout(refreshTimer);
+
+        const auto = String(autoEl.value || "").toLowerCase();
+        if (auto !== "on" && auto !== "true" && auto !== "1") return;
+
+        const now = Date.now();
+        const rsMs = roundSeconds * 1000;
+        const nextBoundary = Math.floor(now / rsMs + 1) * rsMs;
+        const delay = Math.max(1000, (nextBoundary - now) + 2500); // +2.5s buffer
+
+        refreshTimer = setTimeout(async ()=>{
+          await loadLatest();
+          await run();
+        }, delay);
       }
 
       async function run(){
@@ -486,12 +526,13 @@
           winratesEl.innerHTML = "";
           nextEl.innerHTML = "";
           signalsEl.innerHTML = "";
+          stripMetaEl.textContent = "";
 
-          const { url, minStreak, maxStreak } = makeStatsUrl();
+          const { url, minStreak, maxStreak, roundSeconds } = makeStatsUrl();
           rawEl.href = url;
           rawEl.textContent = url;
 
-          setStatus("Running backtestÃ¢â‚¬Â¦");
+          setStatus("Running backtestâ€¦");
           const { res, text, j } = await callJson(url);
           if (!res.ok){ setStatus(["ERROR /api/stats", `HTTP ${res.status}`, text.slice(0, 3500)]); return; }
           if (j?.error){ setStatus(["ERROR /api/stats", JSON.stringify(j, null, 2).slice(0, 3500)]); return; }
@@ -502,15 +543,16 @@
             `Backtest slugs:     previous ${j.input?.count} (offset=${j.input?.offset})`,
             `Resolved rounds:    ${j.totals?.resolvedRounds}/${j.totals?.rounds}`,
             `Signals:            ${j.totals?.signals}`,
-            `Diagnostics errors: ${diag.totalErrors ?? 0}`,
-            diag.topErrors?.length ? ("Top errors:\n" + diag.topErrors.map(x=>`- ${x.key}: ${x.count}`).join("\n")) : "",
-            diag.sampleErrors?.length ? ("\nSample errors:\n" + diag.sampleErrors.map(x=>`- ${x.slug}: ${x.error}`).join("\n")) : ""
-          ].filter(Boolean));
+            `Diagnostics errors: ${diag.totalErrors ?? 0}`
+          ]);
 
-          renderStrip(j.visual?.roundStrip, j.visual?.stripMeta);
+          stripMetaEl.textContent = `ET windows, current=NOW, autoRefresh=${String(autoEl.value)}`;
+          renderStrip(j.visual?.roundStrip, j.input?.baseSlug, roundSeconds);
           renderWinrates(j.byN);
           renderNext(j.nextPrediction, minStreak, maxStreak);
-          renderSignals(j.visual?.recentSignals);
+          renderSignals(j.visual?.recentSignals, roundSeconds);
+
+          scheduleAutoRefresh(roundSeconds);
         } finally {
           btnRun.disabled = false;
         }
