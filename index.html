@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Polystreaker</title>
+    <style>
+      body { font-family: system-ui, Arial; margin: 24px; }
+      code { background: #f3f3f3; padding: 2px 6px; border-radius: 6px; }
+      table { border-collapse: collapse; margin-top: 12px; }
+      th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: right; }
+      th:first-child, td:first-child { text-align: center; }
+      .row { margin: 10px 0; }
+    </style>
+  </head>
+  <body>
+    <h1>Polymarket streak backtest</h1>
+
+    <div class="row">
+      Base slug: <input id="baseSlug" style="width: 360px" value="btc-updown-5m-1771290300" />
+      Count: <input id="count" style="width: 80px" value="40" />
+      <button id="run">Run</button>
+    </div>
+
+    <pre id="status"></pre>
+    <div id="out"></div>
+
+    <script type="module">
+      const statusEl = document.querySelector("#status");
+      const outEl = document.querySelector("#out");
+
+      function pct(x) { return (x == null) ? "n/a" : (x * 100).toFixed(2) + "%"; }
+
+      async function run() {
+        outEl.innerHTML = "";
+        statusEl.textContent = "Running… (try Count=40 first; 100 may take longer)";
+
+        const baseSlug = document.querySelector("#baseSlug").value.trim();
+        const count = document.querySelector("#count").value.trim();
+
+        const url = `/api/stats?baseSlug=${encodeURIComponent(baseSlug)}&count=${encodeURIComponent(count)}&minStreak=3&maxStreak=8&roundSeconds=300&concurrency=4`;
+        const res = await fetch(url);
+        const j = await res.json();
+
+        statusEl.textContent = `Resolved rounds: ${j.totals.resolvedRounds}/${j.totals.rounds} | Signals: ${j.totals.signals}`;
+
+        const byN = j.byN;
+        const rows = Object.keys(byN).map(n => {
+          const b = byN[n];
+          return `<tr><td>${n}</td><td>${b.signals}</td><td>${b.wins}</td><td>${pct(b.winRate)}</td></tr>`;
+        }).join("");
+
+        const next = j.nextPrediction?.suggestions?.map(s =>
+          `<li>N=${s.n}: previous were ${s.prevDir} ⇒ predict <b>${s.predictNext}</b> (nextTs=${s.nextTs})</li>`
+        ).join("") ?? "";
+
+        outEl.innerHTML = `
+          <h2>Win rates</h2>
+          <table>
+            <thead><tr><th>N</th><th>Signals</th><th>Wins</th><th>Win rate</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <h2>Next-round suggestions</h2>
+          <ul>${next || "<li>No current 3–8 streak detected.</li>"}</ul>
+          <p>Raw JSON: <a href="${url}" target="_blank" rel="noreferrer"><code>${url}</code></a></p>
+        `;
+      }
+
+      document.querySelector("#run").addEventListener("click", run);
+      run();
+    </script>
+  </body>
+</html>
