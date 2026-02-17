@@ -5,7 +5,7 @@ export const config = { runtime: "nodejs" };
 
 
 // Discord webhook helper
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1467216362962161727/qDTCrFMNtUUaTIhw7jrr3z7W2FmyfNq6BaDHfvE2l3M9djE-oKRzSLlYVqX0_zjq0kxM";
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1467216362962161727/qDTCrFMCtUUaTIhw7jrr3z7W2FmyfNq6BaDHfvE2l3M9djE-oKRzSLlYVqX0_zjq0kxM";
 
 async function sendDiscordAlert(message) {
   try {
