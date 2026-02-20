@@ -266,7 +266,7 @@
           <div class="strip" id="strip"></div>
         </div>
 
-        <div class="status" id="status">Loading latest slugâ€¦</div>
+        <div class="status" id="status">Loading latest slug...</div>
       </div>
 
       <div class="row2">
@@ -307,7 +307,7 @@
 
       function pct(x){ return (x==null) ? "n/a" : (x*100).toFixed(2) + "%"; }
       function num(v, fallback){ const n = Number(String(v).trim()); return Number.isFinite(n) ? n : fallback; }
-      function setStatus(lines){ statusEl.textContent = Array.isArray(lines) ? lines.join("\\n") : String(lines); }
+      function setStatus(lines){ statusEl.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines); }
 
       function setTheme(theme){
         document.body.setAttribute("data-theme", theme);
@@ -468,7 +468,7 @@
       }
 
       async function loadLatest(){
-        setStatus("Loading latest slugâ€¦");
+        setStatus("Loading latest slug...");
         const rs = num(document.querySelector("#roundSeconds").value, 300);
         const { res, text, j } = await callJson(`/api/latest?prefix=btc-updown-5m-&roundSeconds=${encodeURIComponent(String(rs))}&lookbackSteps=240`);
         if (!res.ok) { setStatus(["ERROR /api/latest", `HTTP ${res.status}`, text.slice(0, 3000)]); return null; }
@@ -528,7 +528,7 @@
           rawEl.href = url;
           rawEl.textContent = url;
 
-          setStatus("Running backtestâ€¦");
+          setStatus("Running backtest...");
           const { res, text, j } = await callJson(url);
           if (!res.ok){ setStatus(["ERROR /api/stats", `HTTP ${res.status}`, text.slice(0, 3500)]); return; }
           if (j?.error){ setStatus(["ERROR /api/stats", JSON.stringify(j, null, 2).slice(0, 3500)]); return; }
